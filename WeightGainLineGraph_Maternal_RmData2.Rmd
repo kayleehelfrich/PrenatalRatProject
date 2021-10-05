@@ -1,0 +1,485 @@
+---
+title: "Maternal Rat Gestational Weight Gain, AIN-76A diet with MD or Alcohol and Iron Supplement or Water, with Some Data Removed for Litter Size"
+author: "Kaylee Helfrich"
+date: "8/20/20-10/26/20"
+output: 
+  pdf_document: default
+  html_document: default
+data: "GestationalWeightGain_RmData2.csv"
+---
+
+Built with R `r getRversion()`
+
+```{r RMarkdown setup, include = FALSE, message = FALSE}
+require(knitr)
+knitr::opts_chunk$set(echo = TRUE, tidy.opts=list(width.cutoff=60), tidy=TRUE)
+knitr::opts_knit$set(root.dir = "~/KayleeStuff/Smith_Lab/Data/Rat_Iron/Maternal_Anthro/WeightGain")
+options(tinytex.verbose = TRUE)
+```
+
+# Graphing Maternal Rat Prenatal Weight Gain
+This document details my graphing of the weight gain from maternal rats. This includes bar and line graphs for various measures of weight gain. This analysis uses data that was collected, excluding samples from dams with litters that were 10 fetuses +/- 2SDs from the mean (including R029, R031 and nonpregnant dams). Long-Evans rats arrived at 7 weeks old and were mated at 9-11 weeks of age. The rats were dosed with 5g/kg ethanol or isocaloric maltodextrin from GD17.5-19.5. The dams also received either an iron supplement (6g/kg, Fer-In-Sol) or the same volume of water as a gavage from GD12.5-GD19.5. All dams consumed AIN-76G diet modified to contain 100ppm of iron from arrival through pregnancy. Tissues were harvested on GD20.5. All graphs are mean with standard deviation, since there are not multiple measures per sample. This analysis will allow us to compare the 4 groups. Statistical analysis in JMP will use ANOVA, following checks for normality and variance, to assign significance to the measures. 
+
+```{r include = FALSE}
+rm(list=ls())
+setwd("~/KayleeStuff/Smith_Lab/Data/Rat_Iron/Maternal_Anthro/WeightGain")
+library(ggplot2)
+library(plotrix)
+library(dplyr)
+library(nlme)
+```
+
+```{r Import file and rearrange by treatment to be alphabetical}
+File <- "GestationalWeightGain_RmData2.csv"
+data <- read.csv(File, header=TRUE) 
+data_frame <- data.frame(data)
+data_frame <- data_frame[order(data_frame$Treatment), ]
+```
+```{r echo = FALSE}
+print(data_frame)
+```
+```{r Prepare data for graphing}
+ActualGroupOrder <- c("PAE-Iron", "PAE","MD-Iron", "MD")
+data_frame<-subset(data_frame, Pregnant.!="No") #remove all nonpregnant dams from dataset
+```
+
+```{r Standard Error Function}
+standard_error <- function(x) sd(x) / sqrt(length(x))
+```
+
+# Pregnant growth from GD0.5-GD20.5 by treatment group (with standard deviation)
+Data is graphed by treatment, with shaded error bars
+```{r}
+#Weight at GD0.5
+GD0.5 <- as.data.frame(tapply(data_frame$GD0.5, as.character(data_frame$Treatment), mean, na.rm=TRUE))
+GD0.5$Treatment <- ActualGroupOrder
+colnames(GD0.5)[1] <- "Mean" #fix column name
+GD0.5$Stdev <- tapply(data_frame$GD0.5, as.character(data_frame$Treatment), sd, na.rm=TRUE)
+GD0.5$Day <- rep("0.5", 4)
+
+#Weight at GD3.5
+GD3.5 <- as.data.frame(tapply(data_frame$GD3.5, as.character(data_frame$Treatment), mean, na.rm=TRUE))
+GD3.5$Treatment <- ActualGroupOrder
+colnames(GD3.5)[1] <- "Mean" #fix column name
+GD3.5$Stdev <- tapply(data_frame$GD3.5, as.character(data_frame$Treatment), sd, na.rm=TRUE)
+GD3.5$Day <- rep("03.5", 4)
+
+#Weight at GD5.5
+GD5.5 <- as.data.frame(tapply(data_frame$GD5.5, as.character(data_frame$Treatment), mean, na.rm=TRUE))
+GD5.5$Treatment <- ActualGroupOrder
+colnames(GD5.5)[1] <- "Mean" #fix column name
+GD5.5$Stdev <- tapply(data_frame$GD5.5, as.character(data_frame$Treatment), sd, na.rm=TRUE)
+GD5.5$Day <- rep("05.5", 4)
+
+#Weight at GD8.5
+GD8.5 <- as.data.frame(tapply(data_frame$GD8.5, as.character(data_frame$Treatment), mean, na.rm=TRUE))
+GD8.5$Treatment <- ActualGroupOrder
+colnames(GD8.5)[1] <- "Mean" #fix column name
+GD8.5$Stdev <- tapply(data_frame$GD8.5, as.character(data_frame$Treatment), sd, na.rm=TRUE)
+GD8.5$Day <- rep("08.5", 4)
+
+#Weight at GD11.5
+GD11.5 <- as.data.frame(tapply(data_frame$GD11.5, as.character(data_frame$Treatment), mean, na.rm=TRUE))
+GD11.5$Treatment <- ActualGroupOrder
+colnames(GD11.5)[1] <- "Mean" #fix column name
+GD11.5$Stdev <- tapply(data_frame$GD11.5, as.character(data_frame$Treatment), sd, na.rm=TRUE)
+GD11.5$Day <- rep("11.5", 4)
+
+#Weight at GD12.5
+GD12.5 <- as.data.frame(tapply(data_frame$GD12.5, as.character(data_frame$Treatment), mean, na.rm=TRUE))
+GD12.5$Treatment <- ActualGroupOrder
+colnames(GD12.5)[1] <- "Mean" #fix column name
+GD12.5$Stdev <- tapply(data_frame$GD12.5, as.character(data_frame$Treatment), sd, na.rm=TRUE)
+GD12.5$Day <- rep("12.5", 4)
+
+#Weight at GD13.5
+GD13.5 <- as.data.frame(tapply(data_frame$GD13.5, as.character(data_frame$Treatment), mean, na.rm=TRUE))
+GD13.5$Treatment <- ActualGroupOrder
+colnames(GD13.5)[1] <- "Mean" #fix column name
+GD13.5$Stdev <- tapply(data_frame$GD13.5, as.character(data_frame$Treatment), sd, na.rm=TRUE)
+GD13.5$Day <- rep("13.5", 4)
+
+#Weight at GD14.5
+GD14.5 <- as.data.frame(tapply(data_frame$GD14.5, as.character(data_frame$Treatment), mean, na.rm=TRUE))
+GD14.5$Treatment <- ActualGroupOrder
+colnames(GD14.5)[1] <- "Mean" #fix column name
+GD14.5$Stdev <- tapply(data_frame$GD14.5, as.character(data_frame$Treatment), sd, na.rm=TRUE)
+GD14.5$Day <- rep("14.5", 4)
+
+#Weight at GD15.5
+GD15.5 <- as.data.frame(tapply(data_frame$GD15.5, as.character(data_frame$Treatment), mean, na.rm=TRUE))
+GD15.5$Treatment <- ActualGroupOrder
+colnames(GD15.5)[1] <- "Mean" #fix column name
+GD15.5$Stdev <- tapply(data_frame$GD15.5, as.character(data_frame$Treatment), sd, na.rm=TRUE)
+GD15.5$Day <- rep("15.5", 4)
+
+#Weight at GD16.5
+GD16.5 <- as.data.frame(tapply(data_frame$GD16.5, as.character(data_frame$Treatment), mean, na.rm=TRUE))
+GD16.5$Treatment <- ActualGroupOrder
+colnames(GD16.5)[1] <- "Mean" #fix column name
+GD16.5$Stdev <- tapply(data_frame$GD16.5, as.character(data_frame$Treatment), sd, na.rm=TRUE)
+GD16.5$Day <- rep("16.5", 4)
+
+#Weight at GD17.5
+GD17.5 <- as.data.frame(tapply(data_frame$GD17.5, as.character(data_frame$Treatment), mean, na.rm=TRUE))
+GD17.5$Treatment <- ActualGroupOrder
+colnames(GD17.5)[1] <- "Mean" #fix column name
+GD17.5$Stdev <- tapply(data_frame$GD17.5, as.character(data_frame$Treatment), sd, na.rm=TRUE)
+GD17.5$Day <- rep("17.5", 4)
+
+#Weight at GD18.5
+GD18.5 <- as.data.frame(tapply(data_frame$GD18.5, as.character(data_frame$Treatment), mean, na.rm=TRUE))
+GD18.5$Treatment <- ActualGroupOrder
+colnames(GD18.5)[1] <- "Mean" #fix column name
+GD18.5$Stdev <- tapply(data_frame$GD18.5, as.character(data_frame$Treatment), sd, na.rm=TRUE)
+GD18.5$Day <- rep("18.5", 4)
+
+#Weight at GD19.5
+GD19.5 <- as.data.frame(tapply(data_frame$GD19.5, as.character(data_frame$Treatment), mean, na.rm=TRUE))
+GD19.5$Treatment <- ActualGroupOrder
+colnames(GD19.5)[1] <- "Mean" #fix column name
+GD19.5$Stdev <- tapply(data_frame$GD19.5, as.character(data_frame$Treatment), sd, na.rm=TRUE)
+GD19.5$Day <- rep("19.5", 4)
+
+#Weight at GD20.5
+GD20.5 <- as.data.frame(tapply(data_frame$GD20.5, as.character(data_frame$Treatment), mean, na.rm=TRUE))
+GD20.5$Treatment <- ActualGroupOrder
+colnames(GD20.5)[1] <- "Mean" #fix column name
+GD20.5$Stdev <- tapply(data_frame$GD20.5, as.character(data_frame$Treatment), sd, na.rm=TRUE)
+GD20.5$Day <- rep("20.5", 4)
+```
+```{r Merge all weight tables}
+#Merge all tables
+Weight_Combined <- rbind(GD0.5, GD3.5, GD5.5, GD8.5, GD11.5, GD12.5, GD13.5, GD14.5, GD15.5, GD16.5, 
+                                  GD17.5, GD18.5, GD19.5, GD20.5)
+Weight_Combined <- Weight_Combined[ ,c(2,1,3,4)]
+Weight_Combined$Day <- as.numeric(as.vector(Weight_Combined$Day)) #convert "Age" to a numeric variable so the x-axis adjusts accordingly
+Weight_Combined$Upper <- Weight_Combined$Mean + Weight_Combined$Stdev
+Weight_Combined$Lower <- Weight_Combined$Mean - Weight_Combined$Stdev
+```
+
+## Graph Weight Gain of Pregnant Dams, Separated by Exposure Group
+```{r}
+png("MaternalWeightGain_SDErrorShading_RmData2_PAExFe_LineGraph.png", units="in", width=10, height=7, res=600)
+
+WG_bygroup <- ggplot(Weight_Combined, aes(x = Day, y = Mean, group = Treatment, color = Treatment) ) +
+     geom_point() +
+     geom_ribbon(aes(ymin=Lower, ymax=Upper, fill = Treatment), alpha = 0.15) +
+     geom_line(aes(y = Mean)) +
+  scale_y_continuous(limits = c(200,370)) + 
+  ggtitle("Maternal Prenatal Weight Gain by Exposure Group") +
+  ylab(expression("Weight (g)")) + 
+  xlab(expression("Gestational Day")) +
+  theme(plot.title = element_text(hjust = 0.5, size=18), 
+        axis.title.y = element_text(size = 16),
+        axis.title.x = element_text(size = 16),
+        panel.grid.major = element_blank(), #gets rid of major gridlines
+        panel.grid.minor = element_blank(), #gets rid of minor gridlines
+        panel.background = element_blank(), #turns background white instead of gray
+        axis.line = element_line(colour = "black"), 
+        axis.text=element_text(size=18, color = "black"), #sets size of x and y axis labels
+        axis.text.x=element_text(vjust = .95, hjust = 0.9),
+        axis.title=element_text(size=20,face="bold"))
+print(WG_bygroup)
+dev.off()
+```
+```{r Maternal Prenatal Weight Gain with Standard Deviation Error Shading, echo = FALSE, warning = FALSE, message = FALSE}
+print(WG_bygroup)
+```
+
+# Pregnant growth from GD0.5-GD20.5 by treatment group (with standard error)
+Data is graphed by treatment, with shaded error bars
+```{r}
+#Weight at GD0.5
+GD0.5 <- as.data.frame(tapply(data_frame$GD0.5, as.character(data_frame$Treatment), mean, na.rm=TRUE))
+GD0.5$Treatment <- ActualGroupOrder
+colnames(GD0.5)[1] <- "Mean" #fix column name
+GD0.5$SE <- tapply(data_frame$GD0.5, as.character(data_frame$Treatment), standard_error)
+GD0.5$Day <- rep("0.5", 4)
+
+#Weight at GD3.5
+GD3.5 <- as.data.frame(tapply(data_frame$GD3.5, as.character(data_frame$Treatment), mean, na.rm=TRUE))
+GD3.5$Treatment <- ActualGroupOrder
+colnames(GD3.5)[1] <- "Mean" #fix column name
+GD3.5$SE <- tapply(data_frame$GD3.5, as.character(data_frame$Treatment), standard_error)
+GD3.5$Day <- rep("03.5", 4)
+
+#Weight at GD5.5
+GD5.5 <- as.data.frame(tapply(data_frame$GD5.5, as.character(data_frame$Treatment), mean, na.rm=TRUE))
+GD5.5$Treatment <- ActualGroupOrder
+colnames(GD5.5)[1] <- "Mean" #fix column name
+GD5.5$SE <- tapply(data_frame$GD5.5, as.character(data_frame$Treatment), standard_error)
+GD5.5$Day <- rep("05.5", 4)
+
+#Weight at GD8.5
+GD8.5 <- as.data.frame(tapply(data_frame$GD8.5, as.character(data_frame$Treatment), mean, na.rm=TRUE))
+GD8.5$Treatment <- ActualGroupOrder
+colnames(GD8.5)[1] <- "Mean" #fix column name
+GD8.5$SE <- tapply(data_frame$GD8.5, as.character(data_frame$Treatment), standard_error)
+GD8.5$Day <- rep("08.5", 4)
+
+#Weight at GD11.5
+GD11.5 <- as.data.frame(tapply(data_frame$GD11.5, as.character(data_frame$Treatment), mean, na.rm=TRUE))
+GD11.5$Treatment <- ActualGroupOrder
+colnames(GD11.5)[1] <- "Mean" #fix column name
+GD11.5$SE <- tapply(data_frame$GD11.5, as.character(data_frame$Treatment), standard_error)
+GD11.5$Day <- rep("11.5", 4)
+
+#Weight at GD12.5
+GD12.5 <- as.data.frame(tapply(data_frame$GD12.5, as.character(data_frame$Treatment), mean, na.rm=TRUE))
+GD12.5$Treatment <- ActualGroupOrder
+colnames(GD12.5)[1] <- "Mean" #fix column name
+GD12.5$SE <- tapply(data_frame$GD12.5, as.character(data_frame$Treatment), standard_error)
+GD12.5$Day <- rep("12.5", 4)
+
+#Weight at GD13.5
+GD13.5 <- as.data.frame(tapply(data_frame$GD13.5, as.character(data_frame$Treatment), mean, na.rm=TRUE))
+GD13.5$Treatment <- ActualGroupOrder
+colnames(GD13.5)[1] <- "Mean" #fix column name
+GD13.5$SE <- tapply(data_frame$GD13.5, as.character(data_frame$Treatment), standard_error)
+GD13.5$Day <- rep("13.5", 4)
+
+#Weight at GD14.5
+GD14.5 <- as.data.frame(tapply(data_frame$GD14.5, as.character(data_frame$Treatment), mean, na.rm=TRUE))
+GD14.5$Treatment <- ActualGroupOrder
+colnames(GD14.5)[1] <- "Mean" #fix column name
+GD14.5$SE <- tapply(data_frame$GD14.5, as.character(data_frame$Treatment), standard_error)
+GD14.5$Day <- rep("14.5", 4)
+
+#Weight at GD15.5
+GD15.5 <- as.data.frame(tapply(data_frame$GD15.5, as.character(data_frame$Treatment), mean, na.rm=TRUE))
+GD15.5$Treatment <- ActualGroupOrder
+colnames(GD15.5)[1] <- "Mean" #fix column name
+GD15.5$SE <- tapply(data_frame$GD15.5, as.character(data_frame$Treatment), standard_error)
+GD15.5$Day <- rep("15.5", 4)
+
+#Weight at GD16.5
+GD16.5 <- as.data.frame(tapply(data_frame$GD16.5, as.character(data_frame$Treatment), mean, na.rm=TRUE))
+GD16.5$Treatment <- ActualGroupOrder
+colnames(GD16.5)[1] <- "Mean" #fix column name
+GD16.5$SE <- tapply(data_frame$GD16.5, as.character(data_frame$Treatment), standard_error)
+GD16.5$Day <- rep("16.5", 4)
+
+#Weight at GD17.5
+GD17.5 <- as.data.frame(tapply(data_frame$GD17.5, as.character(data_frame$Treatment), mean, na.rm=TRUE))
+GD17.5$Treatment <- ActualGroupOrder
+colnames(GD17.5)[1] <- "Mean" #fix column name
+GD17.5$SE <- tapply(data_frame$GD17.5, as.character(data_frame$Treatment), standard_error)
+GD17.5$Day <- rep("17.5", 4)
+
+#Weight at GD18.5
+GD18.5 <- as.data.frame(tapply(data_frame$GD18.5, as.character(data_frame$Treatment), mean, na.rm=TRUE))
+GD18.5$Treatment <- ActualGroupOrder
+colnames(GD18.5)[1] <- "Mean" #fix column name
+GD18.5$SE <- tapply(data_frame$GD18.5, as.character(data_frame$Treatment), standard_error)
+GD18.5$Day <- rep("18.5", 4)
+
+#Weight at GD19.5
+GD19.5 <- as.data.frame(tapply(data_frame$GD19.5, as.character(data_frame$Treatment), mean, na.rm=TRUE))
+GD19.5$Treatment <- ActualGroupOrder
+colnames(GD19.5)[1] <- "Mean" #fix column name
+GD19.5$SE <- tapply(data_frame$GD19.5, as.character(data_frame$Treatment), standard_error)
+GD19.5$Day <- rep("19.5", 4)
+
+#Weight at GD20.5
+GD20.5 <- as.data.frame(tapply(data_frame$GD20.5, as.character(data_frame$Treatment), mean, na.rm=TRUE))
+GD20.5$Treatment <- ActualGroupOrder
+colnames(GD20.5)[1] <- "Mean" #fix column name
+GD20.5$SE <- tapply(data_frame$GD20.5, as.character(data_frame$Treatment), standard_error)
+GD20.5$Day <- rep("20.5", 4)
+```
+```{r Merge all weight tables with SE}
+#Merge all tables
+Weight_Combined_se <- rbind(GD0.5, GD3.5, GD5.5, GD8.5, GD11.5, GD12.5, GD13.5, GD14.5, GD15.5, GD16.5, 
+                                  GD17.5, GD18.5, GD19.5, GD20.5)
+Weight_Combined_se <- Weight_Combined_se[ ,c(2,1,3,4)]
+Weight_Combined_se$Day <- as.numeric(as.vector(Weight_Combined_se$Day)) #convert "Age" to a numeric variable so the x-axis adjusts accordingly
+Weight_Combined_se$Upper <- Weight_Combined_se$Mean + Weight_Combined_se$SE
+Weight_Combined_se$Lower <- Weight_Combined_se$Mean - Weight_Combined_se$SE
+```
+
+## Graph Weight Gain to Distinguish Groups, using standard error
+```{r}
+png("MaternalWeightGain_SEErrorShading_RmData2_PAExFe_LineGraph.png", units="in", width=10, height=7, res=600)
+
+WG_bygroup_se <- ggplot(Weight_Combined_se, aes(x = Day, y = Mean, group = Treatment, color = Treatment) ) +
+     geom_point() +
+     geom_ribbon(aes(ymin=Lower, ymax=Upper, fill = Treatment), alpha = 0.15) +
+     geom_line(aes(y = Mean))+
+  scale_y_continuous(limits = c(220,360))+ 
+  ggtitle("Maternal Prenatal Weight Gain by Exposure Group") +
+  ylab(expression("Weight (g)")) + 
+  xlab(expression("Gestational Day")) +
+  theme(plot.title = element_text(hjust = 0.5, size=18), 
+        axis.title.y = element_text(size = 16),
+        axis.title.x = element_text(size = 16),
+        panel.grid.major = element_blank(), #gets rid of major gridlines
+        panel.grid.minor = element_blank(), #gets rid of minor gridlines
+        panel.background = element_blank(), #turns background white instead of gray
+        axis.line = element_line(colour = "black"), 
+        axis.text=element_text(size=18, color = "black"), #sets size of x and y axis labels
+        axis.text.x=element_text(vjust = .95, hjust = 0.9),
+        axis.title=element_text(size=20,face="bold"))
+print(WG_bygroup_se)
+dev.off()
+```
+```{r Maternal Prenatal Weight Gain with Standard Error Error Shading, echo = FALSE, warning = FALSE, message = FALSE}
+print(WG_bygroup_se)
+```
+
+# Weight Gain- percent weight gain from arrival weight
+```{r}
+PercentIncreaseF <- function(x1, x2) { ((x2 - x1) / x1) * 100 }
+
+#Calculate percent increase from GD0.5 for all dams
+PercentIncrease <- data_frame%>% mutate(PI_3.5 = PercentIncreaseF(GD0.5, GD3.5))
+PercentIncrease <- PercentIncrease%>% mutate(PI_5.5 = PercentIncreaseF(GD0.5, GD5.5))
+PercentIncrease <- PercentIncrease%>% mutate(PI_8.5 = PercentIncreaseF(GD0.5, GD8.5))
+PercentIncrease <- PercentIncrease%>% mutate(PI_11.5 = PercentIncreaseF(GD0.5, GD11.5))
+PercentIncrease <- PercentIncrease%>% mutate(PI_12.5 = PercentIncreaseF(GD0.5, GD12.5))
+PercentIncrease <- PercentIncrease%>% mutate(PI_13.5 = PercentIncreaseF(GD0.5, GD13.5))
+PercentIncrease <- PercentIncrease%>% mutate(PI_14.5 = PercentIncreaseF(GD0.5, GD14.5))
+PercentIncrease <- PercentIncrease%>% mutate(PI_15.5 = PercentIncreaseF(GD0.5, GD15.5))
+PercentIncrease <- PercentIncrease%>% mutate(PI_16.5 = PercentIncreaseF(GD0.5, GD16.5))
+PercentIncrease <- PercentIncrease%>% mutate(PI_17.5 = PercentIncreaseF(GD0.5, GD17.5))
+PercentIncrease <- PercentIncrease%>% mutate(PI_18.5 = PercentIncreaseF(GD0.5, GD18.5))
+PercentIncrease <- PercentIncrease%>% mutate(PI_19.5 = PercentIncreaseF(GD0.5, GD19.5))
+PercentIncrease <- PercentIncrease%>% mutate(PI_20.5 = PercentIncreaseF(GD0.5, GD20.5))
+PercentIncrease <- select (PercentIncrease,-c(4:26))
+```
+```{r}
+#Percent Increase at GD3.5
+PI_GD3.5 <- as.data.frame(tapply(PercentIncrease$PI_3.5, as.character(data_frame$Treatment), mean, na.rm=TRUE))
+PI_GD3.5$Treatment <- ActualGroupOrder
+colnames(PI_GD3.5)[1] <- "Mean" #fix column name
+PI_GD3.5$SE <- tapply(PercentIncrease$PI_3.5, as.character(data_frame$Treatment), standard_error)
+PI_GD3.5$Day <- rep("03.5", 4)
+
+#Percent Increase at GD5.5
+PI_GD5.5 <- as.data.frame(tapply(PercentIncrease$PI_5.5, as.character(data_frame$Treatment), mean, na.rm=TRUE))
+PI_GD5.5$Treatment <- ActualGroupOrder
+colnames(PI_GD5.5)[1] <- "Mean" #fix column name
+PI_GD5.5$SE <- tapply(PercentIncrease$PI_5.5, as.character(data_frame$Treatment), standard_error)
+PI_GD5.5$Day <- rep("05.5", 4)
+
+#Percent Increase at GD8.5
+PI_GD8.5 <- as.data.frame(tapply(PercentIncrease$PI_8.5, as.character(data_frame$Treatment), mean, na.rm=TRUE))
+PI_GD8.5$Treatment <- ActualGroupOrder
+colnames(PI_GD8.5)[1] <- "Mean" #fix column name
+PI_GD8.5$SE <- tapply(PercentIncrease$PI_8.5, as.character(data_frame$Treatment), standard_error)
+PI_GD8.5$Day <- rep("08.5", 4)
+
+#Percent Increase at GD11.5
+PI_GD11.5 <- as.data.frame(tapply(PercentIncrease$PI_11.5, as.character(data_frame$Treatment), mean, na.rm=TRUE))
+PI_GD11.5$Treatment <- ActualGroupOrder
+colnames(PI_GD11.5)[1] <- "Mean" #fix column name
+PI_GD11.5$SE <- tapply(PercentIncrease$PI_11.5, as.character(data_frame$Treatment), standard_error)
+PI_GD11.5$Day <- rep("11.5", 4)
+
+#Percent Increase at GD12.5
+PI_GD12.5 <- as.data.frame(tapply(PercentIncrease$PI_12.5, as.character(data_frame$Treatment), mean, na.rm=TRUE))
+PI_GD12.5$Treatment <- ActualGroupOrder
+colnames(PI_GD12.5)[1] <- "Mean" #fix column name
+PI_GD12.5$SE <- tapply(PercentIncrease$PI_12.5, as.character(data_frame$Treatment), standard_error)
+PI_GD12.5$Day <- rep("12.5", 4)
+
+#Percent Increase at GD13.5
+PI_GD13.5 <- as.data.frame(tapply(PercentIncrease$PI_13.5, as.character(data_frame$Treatment), mean, na.rm=TRUE))
+PI_GD13.5$Treatment <- ActualGroupOrder
+colnames(PI_GD13.5)[1] <- "Mean" #fix column name
+PI_GD13.5$SE <- tapply(PercentIncrease$PI_13.5, as.character(data_frame$Treatment), standard_error)
+PI_GD13.5$Day <- rep("13.5", 4)
+
+#Percent Increase at GD14.5
+PI_GD14.5 <- as.data.frame(tapply(PercentIncrease$PI_14.5, as.character(data_frame$Treatment), mean, na.rm=TRUE))
+PI_GD14.5$Treatment <- ActualGroupOrder
+colnames(PI_GD14.5)[1] <- "Mean" #fix column name
+PI_GD14.5$SE <- tapply(PercentIncrease$PI_14.5, as.character(data_frame$Treatment), standard_error)
+PI_GD14.5$Day <- rep("14.5", 4)
+
+#Percent Increase at GD15.5
+PI_GD15.5 <- as.data.frame(tapply(PercentIncrease$PI_15.5, as.character(data_frame$Treatment), mean, na.rm=TRUE))
+PI_GD15.5$Treatment <- ActualGroupOrder
+colnames(PI_GD15.5)[1] <- "Mean" #fix column name
+PI_GD15.5$SE <- tapply(PercentIncrease$PI_15.5, as.character(data_frame$Treatment), standard_error)
+PI_GD15.5$Day <- rep("15.5", 4)
+
+#Percent Increase at GD16.5
+PI_GD16.5 <- as.data.frame(tapply(PercentIncrease$PI_16.5, as.character(data_frame$Treatment), mean, na.rm=TRUE))
+PI_GD16.5$Treatment <- ActualGroupOrder
+colnames(PI_GD16.5)[1] <- "Mean" #fix column name
+PI_GD16.5$SE <- tapply(PercentIncrease$PI_16.5, as.character(data_frame$Treatment), standard_error)
+PI_GD16.5$Day <- rep("16.5", 4)
+
+#Percent Increase at GD17.5
+PI_GD17.5 <- as.data.frame(tapply(PercentIncrease$PI_17.5, as.character(data_frame$Treatment), mean, na.rm=TRUE))
+PI_GD17.5$Treatment <- ActualGroupOrder
+colnames(PI_GD17.5)[1] <- "Mean" #fix column name
+PI_GD17.5$SE <- tapply(PercentIncrease$PI_17.5, as.character(data_frame$Treatment), standard_error)
+PI_GD17.5$Day <- rep("17.5", 4)
+
+#Percent Increase at GD18.5
+PI_GD18.5 <- as.data.frame(tapply(PercentIncrease$PI_18.5, as.character(data_frame$Treatment), mean, na.rm=TRUE))
+PI_GD18.5$Treatment <- ActualGroupOrder
+colnames(PI_GD18.5)[1] <- "Mean" #fix column name
+PI_GD18.5$SE <- tapply(PercentIncrease$PI_18.5, as.character(data_frame$Treatment), standard_error)
+PI_GD18.5$Day <- rep("18.5", 4)
+
+#Percent Increase at GD19.5
+PI_GD19.5 <- as.data.frame(tapply(PercentIncrease$PI_19.5, as.character(data_frame$Treatment), mean, na.rm=TRUE))
+PI_GD19.5$Treatment <- ActualGroupOrder
+colnames(PI_GD19.5)[1] <- "Mean" #fix column name
+PI_GD19.5$SE <- tapply(PercentIncrease$PI_19.5, as.character(data_frame$Treatment), standard_error)
+PI_GD19.5$Day <- rep("19.5", 4)
+
+#Percent Increase at GD20.5
+PI_GD20.5 <- as.data.frame(tapply(PercentIncrease$PI_20.5, as.character(data_frame$Treatment), mean, na.rm=TRUE))
+PI_GD20.5$Treatment <- ActualGroupOrder
+colnames(PI_GD20.5)[1] <- "Mean" #fix column name
+PI_GD20.5$SE <- tapply(PercentIncrease$PI_20.5, as.character(data_frame$Treatment), standard_error)
+PI_GD20.5$Day <- rep("20.5", 4)
+```
+```{r Merge percent increase tables}
+#Merge tables
+PercentIncrease_Combined <- rbind(PI_GD3.5, PI_GD5.5, PI_GD8.5, PI_GD11.5, PI_GD12.5, PI_GD13.5, PI_GD14.5, PI_GD15.5, PI_GD16.5, PI_GD17.5, PI_GD18.5, PI_GD19.5, PI_GD20.5)
+PercentIncrease_Combined <- PercentIncrease_Combined[ ,c(2,1,3,4)]
+PercentIncrease_Combined$Day <- as.numeric(as.vector(PercentIncrease_Combined$Day)) #convert "Day" to a numeric variable so the x-axis adjusts accordingly
+names(PercentIncrease_Combined)[1] <- "Treatment"
+PercentIncrease_Combined$Upper <- PercentIncrease_Combined$Mean + PercentIncrease_Combined$SE
+PercentIncrease_Combined$Lower <- PercentIncrease_Combined$Mean - PercentIncrease_Combined$SE
+```
+
+## Graph of Percentage Weight Change to Distinguish Groups, using standard error
+```{r}
+png("MaternalWeightGainPercentIncrease_SEErrorShading_RmData2_PAExFe_LineGraph.png", units="in", width=10, height=7, res=600)
+
+WG_PI_se <- ggplot(PercentIncrease_Combined, aes(x = Day, y = Mean, group = Treatment, color = Treatment) ) +
+     geom_point() +
+     geom_ribbon(aes(ymin=Lower, ymax=Upper, fill = Treatment), alpha = 0.15) +
+     geom_line(aes(y = Mean))+
+  scale_y_continuous(limits = c(0,50))+ 
+  ggtitle("Maternal Prenatal Percent Weight Increase by Exposure Group") +
+  ylab(expression("Weight Increase from GD0.5 (%)")) + 
+  xlab(expression("Gestational Day")) +
+  theme(plot.title = element_text(hjust = 0.5, size=18), 
+        axis.title.y = element_text(size = 16),
+        axis.title.x = element_text(size = 16),
+        panel.grid.major = element_blank(), #gets rid of major gridlines
+        panel.grid.minor = element_blank(), #gets rid of minor gridlines
+        panel.background = element_blank(), #turns background white instead of gray
+        axis.line = element_line(colour = "black"), 
+        axis.text=element_text(size=18, color = "black"), #sets size of x and y axis labels
+        axis.text.x=element_text(vjust = .95, hjust = 0.9),
+        axis.title=element_text(size=20,face="bold"))
+print(WG_PI_se)
+dev.off()
+```
+```{r Maternal Prenatal Percent Weight Increase with Standard Error Error Shading, echo = FALSE, warning = FALSE, message = FALSE}
+print(WG_PI_se)
+```
+
+# Session Information
+```{r, echo = FALSE}
+session_info <- devtools::session_info()
+print(session_info)
+```

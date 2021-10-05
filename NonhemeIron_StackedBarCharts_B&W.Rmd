@@ -1,0 +1,218 @@
+---
+title: "Nonheme Iron Analysis- Maternal liver, fetal liver, fetal brain Stacked Bar Graphs- Rat Alcohol and Iron Study, GD20.5 Collection"
+author: "Kaylee Helfrich"
+date: "6/1/2021"
+output: 
+  pdf_document: default
+  html_document: default
+data: "[Tissue]_NonhemeIron.csv"
+---
+
+Built with R `r getRversion()`
+
+```{r RMarkdown setup, include = FALSE, message = FALSE}
+require(knitr)
+knitr::opts_chunk$set(echo = TRUE, tidy.opts=list(width.cutoff=60), tidy=TRUE)
+knitr::opts_knit$set(root.dir = "~/KayleeStuff/Smith_Lab/Data/Rat_Iron/Nonheme_Iron")
+options(tinytex.verbose = TRUE)
+```
+
+# Overall Study Design
+This document details my graphing of nonheme iron data from maternal livers, fetal livers, and fetal brains from rats. This analysis uses all data that were analyzed using the nonheme iron assay (Rebouche et al. 2004). All tissue samples were collected between 11/2019-12/2019 by Kaylee Helfrich, Olivia Rivera, Nipun Saini, and Cecilia Kwan. Long-Evans rats arrived at 7 weeks old and were mated at 9-11 weeks of age. The rats were dosed with 5g/kg ethanol or isocaloric maltodextrin from GD13.5-19.5. The dams also received either an iron supplement (6g/kg, Fer-In-Sol) or the same volume of water as a gavage from GD12.5-GD19.5. All dams consumed AIN-76G diet modified to contain 100ppm of iron from arrival through pregnancy. Tissues were harvested on GD20.5. All graphs are mean with standard deviation, since there are not multiple measures per sample. This analysis will allow us to compare the 4 groups. Statistical analysis in JMP will use ANOVA, following checks for normality and variance, to assign significance to the measures. 
+
+```{r include = FALSE}
+rm(list=ls())
+setwd("~/KayleeStuff/Smith_Lab/Data/Rat_Iron/Nonheme_Iron")
+library(ggplot2)
+library(plotrix)
+library(dplyr)
+library(naniar)
+library(extrafont)
+loadfonts(device = "win")
+```
+
+# Fetal Liver- Females
+```{r Import FLF file and rearrange by Group to be alphabetical}
+FLF_File <- "FL_FemaleFetuses_StackedGraph.csv"
+FLF_data <- read.csv(FLF_File, header=TRUE) 
+FLF_data_frame <- as.data.frame(FLF_data)
+FLF_data_frame <- FLF_data_frame[order(FLF_data_frame$Group), ]
+```
+```{r echo = FALSE}
+head(FLF_data_frame)
+```
+
+## Make Graph
+```{r warning = FALSE, message = FALSE}
+png("FetalLiver_NonhemeIron_StackedGraph_Females_PAExFe_B&W.png", units="in", width=7, height=7, res=600) 
+
+sets <- c("CON", "ALC", "CON+Iron", "ALC+Iron")
+
+p <- ggplot(FLF_data_frame, aes(fill=Iron.Type, y=Mean, x=Group)) + 
+    geom_bar(position="stack", stat="identity", color="black") +
+    geom_errorbar(aes(ymin=Final.Lower, ymax=Final.Upper), width=.2,
+                position=position_dodge(0)) +
+  scale_fill_manual(values=c("grey100","grey51")) +
+  scale_y_continuous(expand = c(0,0), limits = c(0,300)) +
+  ggtitle("Female Fetal Liver- Iron Distribution") +
+  ylab(expression("Liver iron (µg iron/g wet liver weight)")) + 
+  theme(plot.title = element_text(hjust = 0.5, size=18, family = "Times New Roman"), 
+        axis.title.x = element_blank(), #gets rid of x-axis label
+        axis.title.y = element_text(size = 22, family = "Times New Roman"),
+        panel.grid.major = element_blank(), #gets rid of major gridlines
+       panel.grid.minor = element_blank(), #gets rid of minor gridlines
+        panel.background = element_blank(), #turns background white instead of gray
+        axis.line = element_line(colour = "black"), 
+        axis.text=element_text(size=22, color = "black", family = "Times New Roman"), #sets size of x and y axis labels
+        axis.text.x=element_text(angle = 45, vjust = .95, hjust = 0.9, family = "Times New Roman"),
+        legend.title = element_text(family = "Times New Roman", size = 18),
+        legend.text = element_text(family = "Times New Roman", size = 14),
+        axis.title=element_text(size=22,face="bold", family = "Times New Roman")) + 
+  scale_x_discrete (limits = sets)
+print(p)
+dev.off() 
+```
+```{r FLF Stacked Bar Graph, echo = FALSE}
+print(p)
+```
+
+# Fetal Liver- Males
+```{r Import FLM file and rearrange by Group to be alphabetical}
+FLM_File <- "FL_MaleFetuses_StackedGraph.csv"
+FLM_data <- read.csv(FLM_File, header=TRUE) 
+FLM_data_frame <- as.data.frame(FLM_data)
+FLM_data_frame <- FLM_data_frame[order(FLM_data_frame$Group), ]
+```
+```{r echo = FALSE}
+head(FLM_data_frame)
+```
+
+## Make Graph
+```{r warning = FALSE, message = FALSE}
+png("FetalLiver_NonhemeIron_StackedGraph_Males_PAExFe_B&W.png", units="in", width=7, height=7, res=600) 
+
+sets <- c("CON", "ALC", "CON+Iron", "ALC+Iron")
+
+p <- ggplot(FLM_data_frame, aes(fill=Iron.Type, y=Mean, x=Group)) + 
+    geom_bar(position="stack", stat="identity", color="black") +
+    geom_errorbar(aes(ymin=Final.Lower, ymax=Final.Upper), width=.2,
+                position=position_dodge(0)) +
+  scale_fill_manual(values=c("grey100","grey51")) +
+  scale_y_continuous(expand = c(0,0), limits = c(0,300)) +
+  ggtitle("Male Fetal Liver- Iron Distribution") +
+  ylab(expression("Liver iron (µg iron/g wet liver weight)")) + 
+  theme(plot.title = element_text(hjust = 0.5, size=18, family = "Times New Roman"), 
+        axis.title.x = element_blank(), #gets rid of x-axis label
+        axis.title.y = element_text(size = 22, family = "Times New Roman"),
+        panel.grid.major = element_blank(), #gets rid of major gridlines
+        panel.grid.minor = element_blank(), #gets rid of minor gridlines
+        panel.background = element_blank(), #turns background white instead of gray
+        axis.line = element_line(colour = "black"), 
+        axis.text=element_text(size=22, color = "black", family = "Times New Roman"), #sets size of x and y axis labels
+        axis.text.x=element_text(angle = 45, vjust = .95, hjust = 0.9, family = "Times New Roman"),
+        legend.title = element_text(family = "Times New Roman", size = 18),
+        legend.text = element_text(family = "Times New Roman", size = 14),
+        axis.title=element_text(size=22,face="bold", family = "Times New Roman")) + 
+  scale_x_discrete (limits = sets)
+print(p)
+dev.off() 
+```
+```{r FLM Stacked Bar Graph, echo = FALSE}
+print(p)
+```
+
+# Fetal Brain- Females
+```{r Import FBF file and rearrange by Group to be alphabetical}
+FBF_File <- "FB_FemaleFetuses_StackedGraph.csv"
+FBF_data <- read.csv(FBF_File, header=TRUE) 
+FBF_data_frame <- as.data.frame(FBF_data)
+FBF_data_frame <- FBF_data_frame[order(FBF_data_frame$Group), ]
+```
+```{r echo = FALSE}
+head(FBF_data_frame)
+```
+
+## Make Graph
+```{r warning = FALSE, message = FALSE}
+png("FetalBrain_NonhemeIron_StackedGraph_Females_PAExFe_B&W.png", units="in", width=7, height=7, res=600) 
+
+sets <- c("CON", "ALC", "CON+Iron", "ALC+Iron")
+
+p <- ggplot(FBF_data_frame, aes(fill=Iron.Type, y=Mean, x=Group)) + 
+    geom_bar(position="stack", stat="identity", color="black") +
+    geom_errorbar(aes(ymin=Final.Lower, ymax=Final.Upper), width=.2,
+                position=position_dodge(0)) +
+  scale_fill_manual(values=c("grey100","grey51")) +
+  scale_y_continuous(expand = c(0,0), limits = c(0,30)) +
+  ggtitle("Female Fetal Brain- Iron Distribution") +
+  ylab(expression("Brain iron (µg iron/g wet brain weight)")) + 
+  theme(plot.title = element_text(hjust = 0.5, size=18, family = "Times New Roman"), 
+        axis.title.x = element_blank(), #gets rid of x-axis label
+        axis.title.y = element_text(size = 22, family = "Times New Roman"),
+        panel.grid.major = element_blank(), #gets rid of major gridlines
+        panel.grid.minor = element_blank(), #gets rid of minor gridlines
+        panel.background = element_blank(), #turns background white instead of gray
+        axis.line = element_line(colour = "black"), 
+        axis.text=element_text(size=22, color = "black", family = "Times New Roman"), #sets size of x and y axis labels
+        axis.text.x=element_text(angle = 45, vjust = .95, hjust = 0.9, family = "Times New Roman"),
+        legend.title = element_text(family = "Times New Roman", size = 18),
+        legend.text = element_text(family = "Times New Roman", size = 14),
+        axis.title=element_text(size=22,face="bold", family = "Times New Roman")) + 
+  scale_x_discrete (limits = sets)
+print(p)
+dev.off() 
+```
+```{r FBF Stacked Bar Graph, echo = FALSE}
+print(p)
+```
+
+# Fetal Brain- Males
+```{r Import FBM file and rearrange by Group to be alphabetical}
+FBM_File <- "FB_MaleFetuses_StackedGraph.csv"
+FBM_data <- read.csv(FBM_File, header=TRUE) 
+FBM_data_frame <- as.data.frame(FBM_data)
+FBM_data_frame <- FBM_data_frame[order(FBM_data_frame$Group), ]
+```
+```{r echo = FALSE}
+head(FBM_data_frame)
+```
+
+## Make Graph
+```{r warning = FALSE, message = FALSE}
+png("FetalBrain_NonhemeIron_StackedGraph_Males_PAExFe_B&W.png", units="in", width=7, height=7, res=600) 
+
+sets <- c("CON", "ALC", "CON+Iron", "ALC+Iron")
+
+p <- ggplot(FBM_data_frame, aes(fill=Iron.Type, y=Mean, x=Group)) + 
+    geom_bar(position="stack", stat="identity", color="black") +
+    geom_errorbar(aes(ymin=Final.Lower, ymax=Final.Upper), width=.2,
+                position=position_dodge(0)) +
+  scale_fill_manual(values=c("grey100","grey51")) +
+  scale_y_continuous(expand = c(0,0), limits = c(0,30)) +
+  ggtitle("Male Fetal Brain- Iron Distribution") +
+  ylab(expression("Brain iron (µg iron/g wet brain weight)")) + 
+  theme(plot.title = element_text(hjust = 0.5, size=18, family = "Times New Roman"), 
+        axis.title.x = element_blank(), #gets rid of x-axis label
+        axis.title.y = element_text(size = 22, family = "Times New Roman"),
+        panel.grid.major = element_blank(), #gets rid of major gridlines
+        panel.grid.minor = element_blank(), #gets rid of minor gridlines
+        panel.background = element_blank(), #turns background white instead of gray
+        axis.line = element_line(colour = "black"), 
+        axis.text=element_text(size=22, color = "black", family = "Times New Roman"), #sets size of x and y axis labels
+        axis.text.x=element_text(angle = 45, vjust = .95, hjust = 0.9, family = "Times New Roman"),
+        legend.title = element_text(family = "Times New Roman", size = 18),
+        legend.text = element_text(family = "Times New Roman", size = 14),
+        axis.title=element_text(size=22,face="bold", family = "Times New Roman")) + 
+  scale_x_discrete (limits = sets)
+print(p)
+dev.off() 
+```
+```{r FBM Stacked Bar Graph, echo = FALSE}
+print(p)
+```
+
+# Session Information
+```{r, echo = FALSE}
+session_info <- devtools::session_info()
+print(session_info)
+```

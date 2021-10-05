@@ -1,0 +1,151 @@
+---
+title: "Maternal Feces Mineral Analysis- Rat Alcohol and Iron Study, GD20.5 Collection"
+author: "Kaylee Helfrich"
+date: "3/1/2021"
+output: 
+  pdf_document: default
+  html_document: default
+data: "ICPOES_Mineral_MaternalFeces_TotalMinerals.csv"
+      "ICPOES_Mineral_MaternalFeces_PerGram.csv"
+---
+
+Built with R `r getRversion()`
+
+```{r RMarkdown setup, include = FALSE, message = FALSE}
+require(knitr)
+knitr::opts_chunk$set(echo = TRUE, tidy.opts=list(width.cutoff=60), tidy=TRUE)
+knitr::opts_knit$set(root.dir = "~/KayleeStuff/Smith_Lab/Data/Rat_Iron/Mineral_Analysis")
+options(tinytex.verbose = TRUE)
+```
+
+# Overall Study Design
+This document details my graphing of mineral analysis data from maternal feces from rats. This analysis uses all data that was sent for ICPOES. ICPOES (Inductively coupled plasma - optical emission spectrometry) measured 27 different elements. However, most of these elements were not present in the tissues and were removed prior to analysis, leaving only minerals that were present. All tissue samples were collected between 11/2019-12/2019 by Kaylee Helfrich, Olivia Rivera, Nipun Saini, and Cecilia Kwan. Long-Evans rats arrived at 7 weeks old and were mated at 9-11 weeks of age. The rats were dosed with 5g/kg ethanol or isocaloric maltodextrin from GD13.5-19.5. The dams also received either an iron supplement (6g/kg, Fer-In-Sol) or the same volume of water as a gavage from GD12.5-GD19.5. All dams consumed AIN-76G diet modified to contain 100ppm of iron from arrival through pregnancy. Tissues were harvested on GD20.5. All graphs are mean with standard deviation, since there are not multiple measures per sample. This analysis will allow us to compare the 4 groups. Statistical analysis in JMP will use ANOVA, following checks for normality and variance, to assign significance to the measures. 
+
+```{r include = FALSE}
+rm(list=ls())
+setwd("~/KayleeStuff/Smith_Lab/Data/Rat_Iron/Mineral_Analysis")
+library(ggplot2)
+library(plotrix)
+library(dplyr)
+library(naniar) # to get rid of too high values if necessary
+library(extrafont)
+loadfonts(device = "win")
+```
+
+# Import Files and Print Imported Dataframes
+```{r Import file and rearrange by treatment to be alphabetical}
+File1 <- "ICPOES_Mineral_MaternalFeces_PerGram.csv"
+File2 <- "ICPOES_Mineral_MaternalFeces_TotalMinerals.csv"
+data1 <- read.csv(File1, header=TRUE) 
+DF_PerGram <- data.frame(data1)
+DF_PerGram <- DF_PerGram[order(DF_PerGram$Exposure), ]
+data2 <- read.csv(File2, header=TRUE) 
+DF_TotalFeces <- data.frame(data2)
+DF_TotalFeces <- DF_TotalFeces[order(DF_TotalFeces$Exposure), ]
+```
+```{r echo = FALSE}
+print(DF_PerGram)
+print(DF_TotalFeces)
+```
+```{r Prepare data for graphing}
+ActualGroupOrder <- c("CON", "CON+Iron", "ALC", "ALC+Iron")
+```
+
+## Adjust dataframe row numbers
+
+### Dataframe with minerals expressed as total minerals (ug) per total fecal dry weight
+```{r}
+Groupcount <- DF_TotalFeces %>% count(Exposure)
+NumPoints <- max(Groupcount$n)
+DiffFunc <- function(x) NumPoints - x 
+DiffPoints <- as.data.frame(tapply(Groupcount$n, as.character(Groupcount$Exposure), DiffFunc)) 
+DiffPoints$Exposure <- ActualGroupOrder
+colnames(DiffPoints)[1] <- "NumberN" 
+Nrow <- sum(DiffPoints$NumberN) 
+MDH2O <- DiffPoints[1,1]
+MDFe <- DiffPoints[2,1]
+AlcH2O <- DiffPoints[3,1]
+AlcFe <- DiffPoints[4,1] 
+
+DF_extra <- data.frame(matrix(NA, nrow = Nrow, ncol = 16)) 
+vector <- rep(c("ALC+Iron", "ALC", "CON+Iron", "CON"), times = c(AlcFe, AlcH2O, MDFe, MDH2O))
+DF_extra$Exposure <- vector 
+DF_extra <- DF_extra[,c(1, 17,2:16)] 
+DF_extra <- setNames(DF_extra, names(DF_TotalFeces)) 
+DF_TotalFeces_new <- rbind(DF_TotalFeces, DF_extra) 
+print(DF_TotalFeces_new %>% count(Exposure)) 
+DF_TotalFeces_new <- DF_TotalFeces_new[order(DF_TotalFeces_new$Exposure), ]
+```
+```{r Number of missing rows in each figure, echo = FALSE}
+print(Nrow)
+```
+
+# Maternal Fecal Elements
+
+## Maternal Feces Iron - Per total fecal sample
+```{r, echo = FALSE, warning = FALSE, message = FALSE}
+#Mean
+Mean <- tapply(DF_TotalFeces_new$Iron.1, as.character(DF_TotalFeces_new$Exposure), mean, na.rm=TRUE) #make sure to change 
+Mean <- as.data.frame(rep(Mean, each = NumPoints))
+Mean$Exposure <- rep(ActualGroupOrder, each = NumPoints) 
+colnames(Mean)[1] <- "Mean"
+
+#Stdev
+Stdev <- tapply(DF_TotalFeces_new$Iron.1, as.character(DF_TotalFeces_new$Exposure), sd, na.rm=TRUE) #make sure to change 
+Stdev <- as.data.frame(rep(Stdev, each = NumPoints))
+Stdev$Exposure <- rep(ActualGroupOrder, each = NumPoints)
+colnames(Stdev)[1] <- "Stdev"
+
+#Combine
+dataframe_combine <- cbind(Mean, Stdev, DF_TotalFeces_new$Iron.1) #make sure to change
+colnames(dataframe_combine)[5] <- "Value"
+dataframe_combine <- dataframe_combine[-2]
+
+#Error bars
+dataframe_combine$Upper <- dataframe_combine$Mean + dataframe_combine$Stdev
+dataframe_combine$Lower <- dataframe_combine$Mean - dataframe_combine$Stdev
+
+#Make Graph#
+png("MaternalFeces_ICPOES_Iron_TotalIronInFeces_AllData_PAExFe_Dotplot_B&W.png", units="in", width=7, height=7, res=600) 
+
+sets <- c("CON", "ALC", "CON+Iron", "ALC+Iron")
+
+p<- ggplot(dataframe_combine, aes(x=Exposure, y=Mean)) + 
+  geom_bar(stat="identity", color="black", aes(fill = Exposure),
+           position=position_dodge()) +
+  scale_fill_manual(values=c("CON" = "grey100",
+                             "ALC" = "grey51",
+                             "CON+Iron" = "grey75",
+                             "ALC+Iron" = "grey30"
+                             )) +
+  geom_errorbar(aes(ymin=Lower, ymax=Upper), width=.2,
+                position=position_dodge(.9)) + 
+  geom_point(aes(x=Exposure, y=Value),
+             size = 1.25, shape = 19, position = position_jitter(width=.15, height = 0)) +
+  scale_y_continuous(expand = c(0,0), limits = c(0,8)) +
+  ggtitle("Iron in 24 hours of maternal feces") +
+  ylab(expression("Total iron in 24h of feces (µg)")) + 
+  theme(plot.title = element_text(hjust = 0.5, size=18, family = "Times New Roman"), 
+        axis.title.x = element_blank(), #gets rid of x-axis label
+        axis.title.y = element_text(size = 26, family = "Times New Roman"),
+        panel.grid.major = element_blank(), #gets rid of major gridlines
+        panel.grid.minor = element_blank(), #gets rid of minor gridlines
+        panel.background = element_blank(), #turns background white instead of gray
+        axis.line = element_line(colour = "black"), 
+        legend.position="none", #gets rid of legend
+        axis.text=element_text(size=22, color = "black", family = "Times New Roman"), #sets size of x and y axis labels
+        axis.text.x=element_text(size = 22, family = "Times New Roman"),
+        axis.title=element_text(size=22,face="bold", family = "Times New Roman")) + 
+  scale_x_discrete (limits = sets)
+print(p)
+dev.off() 
+```
+```{r Maternal Fecal Iron- Per total fecal sample, echo = FALSE, warning = FALSE, message = FALSE}
+print(p)
+```
+
+# Session Information
+```{r, echo = FALSE}
+session_info <- devtools::session_info()
+print(session_info)
+```

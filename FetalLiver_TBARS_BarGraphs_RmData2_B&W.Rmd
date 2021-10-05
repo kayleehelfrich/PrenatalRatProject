@@ -1,0 +1,322 @@
+---
+title: "Fetal Liver TBARS- All, Females, Males Only- Rat Alcohol and Iron Study, GD20.5 Collection, Removing 2 Litters"
+author: "Kaylee Helfrich"
+date: "10/20/20"
+output: 
+  pdf_document: default
+  html_document: default
+data: "TBARS_Data_COMBINED_RmData2.csv"
+---
+
+Built with R `r getRversion()`
+
+```{r RMarkdown setup, include = FALSE, message = FALSE}
+require(knitr)
+knitr::opts_chunk$set(echo = TRUE, tidy.opts=list(width.cutoff=60), tidy=TRUE)
+knitr::opts_knit$set(root.dir = "~/KayleeStuff/Smith_Lab/Data/Rat_Iron/TBARS/RmData2-USETHIS")
+options(tinytex.verbose = TRUE)
+```
+
+# Overall Study Design
+This document details my graphing of TBARS data from fetal liver from rats. This analysis uses the data that was collected on the rats in this study, excluding samples from litters that were more than 2 standard deviations (SD = 3) from the mean (Mean = 10), including 2 litters with only 2 fetuses each (R029-MD+H2O and R031-MD+Fe). TBARS was used to measure MDA levels. All tissue samples were collected between 11/2019-12/2019 by Kaylee Helfrich, Olivia Rivera, Nipun Saini, and Cecilia Kwan. Long-Evans rats arrived at 7 weeks old and were mated at 9-11 weeks of age. The rats were dosed with 5g/kg ethanol or isocaloric maltodextrin from GD13.5-19.5. The dams also received either an iron supplement (6g/kg, Fer-In-Sol) or the same volume of water as a gavage from GD12.5-GD19.5. All dams consumed AIN-76G diet modified to contain 100ppm of iron from arrival through pregnancy. Tissues were harvested on GD20.5. All graphs are mean with standard deviation, since there are not multiple measures per sample. This analysis will allow us to compare the 4 groups. Statistical analysis in JMP will use ANOVA, following checks for normality and variance, to assign significance to the measures. 
+
+```{r include = FALSE}
+rm(list=ls())
+setwd("~/KayleeStuff/Smith_Lab/Data/Rat_Iron/TBARS/RmData2-USETHIS")
+library(ggplot2)
+library(plotrix)
+library(dplyr)
+library(naniar) # to get rid of too high values if necessary
+library(extrafont)
+loadfonts(device = "win")
+```
+
+```{r Import file and rearrange by treatment to be alphabetical}
+File <- "TBARS_Data_COMBINED_RmData2.csv"
+data <- read.csv(File, header=TRUE) 
+data_frame <- data.frame(data)
+data_frame <- data_frame[ which(data_frame$Tissue=='Fetal Liver'), ]
+data_frame <- data_frame[order(data_frame$Treatment), ]
+```
+```{r echo = FALSE}
+print(data_frame)
+```
+```{r Prepare data for graphing}
+ActualGroupOrder <- c("ALC+Iron", "ALC","CON+Iron", "CON")
+```
+
+```{r}
+#Figure out how many rows of empty NA's are needed to equalize the treatment groups
+Groupcount <- data_frame %>% count(Treatment) #Calculate how many individual Females there are per treatment group
+NumPoints <- max(Groupcount$n) #Create the variable "NumPoints" to count the # of points in the final graphs
+DiffFunc <- function(x) NumPoints - x #Create the function "DiffFunc" to calculate the number of NA rows to be added
+DiffPoints <- as.data.frame(tapply(Groupcount$n, as.character(Groupcount$Treatment), DiffFunc)) #Calculate number of NA rows to be added to each treatment group
+DiffPoints$Treatment <- ActualGroupOrder #add new column so that the # of points to be added is assigned to the treatment
+colnames(DiffPoints)[1] <- "NumberN" #rename column
+Nrow <- sum(DiffPoints$NumberN) #figure out how many total rows will be added to the DF_extra dataframe
+AlcFe <- DiffPoints[1,1] #for each of these, it is creating a variable for the "vector" below
+AlcH2O <- DiffPoints[2,1]
+MDFe <- DiffPoints[3,1]
+MDH2O <- DiffPoints[4,1]
+
+#Add extra rows of NAs to equalize groups
+DF_extra <- data.frame(matrix(NA, nrow = Nrow, ncol = 6)) #create an empty dataframe filled with NA's; set ncol equal to total number columns - 1
+vector <- rep(c("Alc+Fe", "Alc+H2O", "MD+Fe", "MD+H2O"), times = c(AlcFe, AlcH2O, MDFe, MDH2O)) #create the vector to add the treatment groups to the NA matrix
+DF_extra$Treatment <- vector #add in the Treatment column to the DF_extra dataframe
+DF_extra <- DF_extra[,c(1:5, 7,6)] #rearrange the columns so that they are in the same order as the original DF
+DF_extra <- setNames(DF_extra, names(data_frame)) #set the names of the new df to match the original df
+DF_extra$Sex <- c("F", "M") #Create correct sexes so it doesn't have to be done later
+FL <- rbind(data_frame, DF_extra) #Rbind the 2 dataframes so that we now have equal treatment group sizes
+print(FL %>% count(Treatment)) #check that the groups are now equal
+#rearrange to be in order of Treatment, otherwise the dots get accidentally reassigned to the wrong group
+FL <- FL[order(FL$Treatment), ]
+```
+
+# Fetal Liver TBARS- All Fetuses
+```{r, warning = FALSE, message = FALSE}
+#Mean- calculate mean for column, repeat it to number of points, and create dataframe
+Mean <- tapply(FL$TBARS, as.character(FL$Treatment), mean, na.rm=TRUE) #make sure to change selected column to change data for graph
+Mean <- as.data.frame(rep(Mean, each = NumPoints)) #repeat mean a set number of times
+Mean$Treatment <- rep(ActualGroupOrder, each = NumPoints) #repeat treatment a set number of times
+colnames(Mean)[1] <- "Mean" #fix column name
+
+#Stdev- calculate standard deviation for column, repeat it to number of points, and create dataframe
+Stdev <- tapply(FL$TBARS, as.character(FL$Treatment), sd, na.rm=TRUE) #make sure to change selected column
+Stdev <- as.data.frame(rep(Stdev, each = NumPoints)) #repeat stdev a set number of times
+Stdev$Treatment <- rep(ActualGroupOrder, each = NumPoints) #repeat treatment a set number of times
+colnames(Stdev)[1] <- "Stdev" #fix column name
+
+#Combine mean, standard deviation, and individual data points
+dataframe_combine <- cbind(Mean, Stdev, FL$TBARS) #make sure to change selected column
+colnames(dataframe_combine)[5] <- "Value" #Fix name of individual data point column
+dataframe_combine <- dataframe_combine[-2] #Remove extra treatment column
+
+#Error bars
+dataframe_combine$Upper <- dataframe_combine$Mean + dataframe_combine$Stdev #upper error
+dataframe_combine$Lower <- dataframe_combine$Mean - dataframe_combine$Stdev #lower error
+
+#Make Graph#
+png("FetalLiver_TBARS_AllFetuses_RmData2_PAExFe_Dotplot_B&W.png", units="in", width=7, height=7, res=600) 
+
+sets <- c("CON", "ALC", "CON+Iron", "ALC+Iron")
+
+p<- ggplot(dataframe_combine, aes(x=Treatment, y=Mean)) + 
+  geom_bar(stat="identity", color="black", aes(fill = Treatment),
+           position=position_dodge()) +
+  scale_fill_manual(values=c("CON" = "grey100",
+                             "ALC" = "grey51",
+                             "CON+Iron" = "grey75",
+                             "ALC+Iron" = "grey30"
+                             )) +
+  geom_errorbar(aes(ymin=Lower, ymax=Upper), width=.2,
+                position=position_dodge(.9)) + 
+  geom_point(aes(x=Treatment, y=Value),
+             size = 1.25, shape = 19, position = position_jitter(width=.15, height=0.1)) +
+  scale_y_continuous(expand = c(0,0), limits = c(0,5)) +
+  ggtitle("Fetal Liver MDA") +
+  ylab(expression("MDA (nmol MDA/mg protein)")) + 
+  theme(plot.title = element_text(hjust = 0.5, size=18, family = "Times New Roman"), 
+        axis.title.x = element_blank(), #gets rid of x-axis label
+        axis.title.y = element_text(size = 24, family = "Times New Roman"),
+        panel.grid.major = element_blank(), #gets rid of major gridlines
+        panel.grid.minor = element_blank(), #gets rid of minor gridlines
+        panel.background = element_blank(), #turns background white instead of gray
+        axis.line = element_line(colour = "black"), 
+        legend.position="none", #gets rid of legend
+        axis.text=element_text(size=22, color = "black", family = "Times New Roman"), #sets size of x and y axis labels
+        axis.text.x=element_text(family = "Times New Roman"),
+        axis.title=element_text(size=22,face="bold", family = "Times New Roman")) + 
+  scale_x_discrete (limits = sets)
+print(p)
+dev.off() 
+```
+```{r Fetal Liver TBARS- All Fetuses, echo = FALSE}
+print(p)
+```
+
+# Create new tables for fetal sex
+```{r}
+Males <- FL[ which(FL$Sex=='M'), ]
+Sex_NumPoints <- 8
+Females <- FL[ which(FL$Sex=='F'), ]
+```
+
+## Normalize Treatment Group Numbers for Males
+```{r}
+Groupcount <- Males %>% count(Treatment) 
+NumPoints <- max(Groupcount$n) 
+DiffPoints <- as.data.frame(tapply(Groupcount$n, as.character(Groupcount$Treatment), DiffFunc)) 
+DiffPoints$Treatment <- ActualGroupOrder 
+colnames(DiffPoints)[1] <- "NumberN"
+Nrow <- sum(DiffPoints$NumberN) 
+AlcFe <- DiffPoints[1,1] 
+AlcH2O <- DiffPoints[2,1]
+MDFe <- DiffPoints[3,1]
+MDH2O <- DiffPoints[4,1]
+
+DF_extra <- data.frame(matrix(NA, nrow = Nrow, ncol = 6)) 
+vector <- rep(c("Alc+Fe", "Alc+H2O", "MD+Fe", "MD+H2O"), times = c(AlcFe, AlcH2O, MDFe, MDH2O)) 
+DF_extra$Treatment <- vector
+DF_extra <- DF_extra[,c(1:5, 7,6)]
+DF_extra <- setNames(DF_extra, names(Males))
+DF_extra$Sex <- c("M", "M", "M")
+Males <- rbind(Males, DF_extra)
+print(Males %>% count(Treatment))
+Males <- Males[order(Males$Treatment), ]
+```
+
+## Fetal Liver TBARS- Males Only
+```{r, echo = FALSE, warning = FALSE, message = FALSE}
+#Mean
+Mean <- tapply(Males$TBARS, as.character(Males$Treatment), mean, na.rm=TRUE) #make sure to change 
+Mean <- as.data.frame(rep(Mean, each = Sex_NumPoints))
+Mean$Treatment <- rep(ActualGroupOrder, each = Sex_NumPoints) 
+colnames(Mean)[1] <- "Mean"
+
+#Stdev
+Stdev <- tapply(Males$TBARS, as.character(Males$Treatment), sd, na.rm=TRUE) #make sure to change 
+Stdev <- as.data.frame(rep(Stdev, each = Sex_NumPoints))
+Stdev$Treatment <- rep(ActualGroupOrder, each = Sex_NumPoints)
+colnames(Stdev)[1] <- "Stdev"
+
+#Combine
+dataframe_combine <- cbind(Mean, Stdev, Males$TBARS) #make sure to change
+colnames(dataframe_combine)[5] <- "Value"
+dataframe_combine <- dataframe_combine[-2]
+
+#Error bars
+dataframe_combine$Upper <- dataframe_combine$Mean + dataframe_combine$Stdev
+dataframe_combine$Lower <- dataframe_combine$Mean - dataframe_combine$Stdev
+
+#Make Graph#
+png("FetalLiver_TBARS_Males_RmData2_PAExFe_Dotplot.png", units="in", width=7, height=7, res=600) 
+
+sets <- c("MD", "PAE", "MD-Iron", "PAE-Iron")
+
+p<- ggplot(dataframe_combine, aes(x=Treatment, y=Mean)) + 
+  geom_bar(stat="identity", color="black", aes(fill = Treatment),
+           position=position_dodge()) +
+  scale_fill_manual(values=c("MD" = "#0000CC",
+                             "PAE" = "#6699FF",
+                             "MD-Iron" = "#660066",
+                             "PAE-Iron" = "#9900CC"
+                             )) +
+  geom_errorbar(aes(ymin=Lower, ymax=Upper), width=.2,
+                position=position_dodge(.9)) + 
+  geom_point(aes(x=Treatment, y=Value),
+             size = 1.25, shape = 19, position = position_jitter(width=.15, height=0.1)) +
+  scale_y_continuous(expand = c(0,0), limits = c(0,5)) +
+  ggtitle("Fetal Liver TBARS") +
+  ylab(expression("TBARS (nmol TBARS/mg protein)")) + 
+  theme(plot.title = element_text(hjust = 0.5, size=18), 
+        axis.title.x = element_blank(), #gets rid of x-axis label
+        axis.title.y = element_text(size = 16),
+        panel.grid.major = element_blank(), #gets rid of major gridlines
+        panel.grid.minor = element_blank(), #gets rid of minor gridlines
+        panel.background = element_blank(), #turns background white instead of gray
+        axis.line = element_line(colour = "black"), 
+        legend.position="none", #gets rid of legend
+        axis.text=element_text(size=18, color = "black"), #sets size of x and y axis labels
+        axis.text.x=element_text(angle = 45, vjust = .95, hjust = 0.9),
+        axis.title=element_text(size=20,face="bold")) + 
+  scale_x_discrete (limits = sets)
+print(p)
+dev.off() 
+```
+```{r Fetal Liver TBARS- Males Only, echo = FALSE, warning = FALSE, message = FALSE}
+print(p)
+```
+
+## Normalize Treatment Group Numbers for Females
+```{r}
+Groupcount <- Females %>% count(Treatment) 
+NumPoints <- max(Groupcount$n) 
+DiffPoints <- as.data.frame(tapply(Groupcount$n, as.character(Groupcount$Treatment), DiffFunc)) 
+DiffPoints$Treatment <- ActualGroupOrder 
+colnames(DiffPoints)[1] <- "NumberN"
+Nrow <- sum(DiffPoints$NumberN) 
+AlcFe <- DiffPoints[1,1] 
+AlcH2O <- DiffPoints[2,1]
+MDFe <- DiffPoints[3,1]
+MDH2O <- DiffPoints[4,1]
+
+DF_extra <- data.frame(matrix(NA, nrow = Nrow, ncol = 6)) 
+vector <- rep(c("Alc+Fe", "Alc+H2O", "MD+Fe", "MD+H2O"), times = c(AlcFe, AlcH2O, MDFe, MDH2O)) 
+DF_extra$Treatment <- vector
+DF_extra <- DF_extra[,c(1:5, 7,6)]
+DF_extra <- setNames(DF_extra, names(Females))
+DF_extra$Sex <- c("F")
+Females <- rbind(Females, DF_extra)
+print(Females %>% count(Treatment))
+Females <- Females[order(Females$Treatment), ]
+
+FSex_NumPoints <- 11
+```
+
+## Fetal Liver TBARS- Females Only
+```{r, echo = FALSE, warning = FALSE, message = FALSE}
+#Mean
+Mean <- tapply(Females$TBARS, as.character(Females$Treatment), mean, na.rm=TRUE) #make sure to change 
+Mean <- as.data.frame(rep(Mean, each = FSex_NumPoints))
+Mean$Treatment <- rep(ActualGroupOrder, each = FSex_NumPoints) 
+colnames(Mean)[1] <- "Mean"
+
+#Stdev
+Stdev <- tapply(Females$TBARS, as.character(Females$Treatment), sd, na.rm=TRUE) #make sure to change 
+Stdev <- as.data.frame(rep(Stdev, each = FSex_NumPoints))
+Stdev$Treatment <- rep(ActualGroupOrder, each = FSex_NumPoints)
+colnames(Stdev)[1] <- "Stdev"
+
+#Combine
+dataframe_combine <- cbind(Mean, Stdev, Females$TBARS) #make sure to change
+colnames(dataframe_combine)[5] <- "Value"
+dataframe_combine <- dataframe_combine[-2]
+
+#Error bars
+dataframe_combine$Upper <- dataframe_combine$Mean + dataframe_combine$Stdev
+dataframe_combine$Lower <- dataframe_combine$Mean - dataframe_combine$Stdev
+
+#Make Graph#
+png("FetalLiver_TBARS_Females_RmData2_PAExFe_Dotplot.png", units="in", width=7, height=7, res=600) 
+
+sets <- c("MD", "PAE", "MD-Iron", "PAE-Iron")
+
+p<- ggplot(dataframe_combine, aes(x=Treatment, y=Mean)) + 
+  geom_bar(stat="identity", color="black", aes(fill = Treatment),
+           position=position_dodge()) +
+  scale_fill_manual(values=c("MD" = "#0000CC",
+                             "PAE" = "#6699FF",
+                             "MD-Iron" = "#660066",
+                             "PAE-Iron" = "#9900CC"
+                             )) +
+  geom_errorbar(aes(ymin=Lower, ymax=Upper), width=.2,
+                position=position_dodge(.9)) + 
+  geom_point(aes(x=Treatment, y=Value),
+             size = 1.25, shape = 19, position = position_jitter(width=.15, height=0.1)) +
+  scale_y_continuous(expand = c(0,0), limits = c(0,5)) +
+  ggtitle("Fetal Liver TBARS") +
+  ylab(expression("TBARS (nmol TBARS/mg protein)")) + 
+  theme(plot.title = element_text(hjust = 0.5, size=18), 
+        axis.title.x = element_blank(), #gets rid of x-axis label
+        axis.title.y = element_text(size = 16),
+        panel.grid.major = element_blank(), #gets rid of major gridlines
+        panel.grid.minor = element_blank(), #gets rid of minor gridlines
+        panel.background = element_blank(), #turns background white instead of gray
+        axis.line = element_line(colour = "black"), 
+        legend.position="none", #gets rid of legend
+        axis.text=element_text(size=18, color = "black"), #sets size of x and y axis labels
+        axis.text.x=element_text(angle = 45, vjust = .95, hjust = 0.9),
+        axis.title=element_text(size=20,face="bold")) + 
+  scale_x_discrete (limits = sets)
+print(p)
+dev.off() 
+```
+```{r Fetal Liver TBARS- Females Only, echo = FALSE, warning = FALSE, message = FALSE}
+print(p)
+```
+
+# Session Information
+```{r, echo = FALSE}
+session_info <- devtools::session_info()
+print(session_info)
+```

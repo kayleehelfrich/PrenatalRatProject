@@ -1,0 +1,1578 @@
+---
+title: "Fetal Liver Mineral Analysis- All, Females, Males Only- Rat Alcohol and Iron Study, GD20.5 Collection"
+author: "Kaylee Helfrich"
+date: "9/1/20"
+output: 
+  pdf_document: default
+  html_document: default
+data: "ICPOES_Mineral_FetalLiver.csv"
+---
+
+Built with R `r getRversion()`
+
+```{r RMarkdown setup, include = FALSE, message = FALSE}
+require(knitr)
+knitr::opts_chunk$set(echo = TRUE, tidy.opts=list(width.cutoff=60), tidy=TRUE)
+knitr::opts_knit$set(root.dir = "~/KayleeStuff/Smith_Lab/Data/Rat_Iron/Mineral_Analysis")
+options(tinytex.verbose = TRUE)
+```
+
+# Overall Study Design
+This document details my graphing of mineral analysis data from fetal liver from rats. This analysis uses all data that was sent for ICPOES. ICPOES (Inductively coupled plasma - optical emission spectrometry) measured 27 different elements. However, most of these elements were not present in the tissues and were removed prior to analysis, leaving only minerals that were present. All tissue samples were collected between 11/2019-12/2019 by Kaylee Helfrich, Olivia Rivera, Nipun Saini, and Cecilia Kwan. Long-Evans rats arrived at 7 weeks old and were mated at 9-11 weeks of age. The rats were dosed with 5g/kg ethanol or isocaloric maltodextrin from GD13.5-19.5. The dams also received either an iron supplement (6g/kg, Fer-In-Sol) or the same volume of water as a gavage from GD12.5-GD19.5. All dams consumed AIN-76G diet modified to contain 100ppm of iron from arrival through pregnancy. Tissues were harvested on GD20.5. All graphs are mean with standard deviation, since there are not multiple measures per sample. This analysis will allow us to compare the 4 groups. Statistical analysis in JMP will use ANOVA, following checks for normality and variance, to assign significance to the measures. 
+
+```{r include = FALSE}
+rm(list=ls())
+setwd("~/KayleeStuff/Smith_Lab/Data/Rat_Iron/Mineral_Analysis")
+library(ggplot2)
+library(plotrix)
+library(dplyr)
+library(naniar) # to get rid of too high values in the calcium #s if necessary
+```
+
+```{r Import file and rearrange by treatment to be alphabetical}
+File <- "ICPOES_Mineral_FetalLiver_WetWeight.csv"
+data <- read.csv(File, header=TRUE) 
+data_frame <- data.frame(data)
+data_frame <- data_frame[order(data_frame$Treatment), ]
+```
+```{r echo = FALSE}
+print(data_frame)
+```
+```{r Prepare data for graphing}
+ActualGroupOrder <- c("PAE-Iron", "PAE","MD-Iron", "MD")
+```
+
+```{r}
+#Figure out how many rows of empty NA's are needed to equalize the treatment groups
+Groupcount <- data_frame %>% count(Treatment) #Calculate how many individual Females there are per treatment group
+NumPoints <- max(Groupcount$n) #Create the variable "NumPoints" to count the # of points in the final graphs
+DiffFunc <- function(x) NumPoints - x #Create the function "DiffFunc" to calculate the number of NA rows to be added
+DiffPoints <- as.data.frame(tapply(Groupcount$n, as.character(Groupcount$Treatment), DiffFunc)) #Calculate number of NA rows to be added to each treatment group
+DiffPoints$Treatment <- ActualGroupOrder #add new column so that the # of points to be added is assigned to the treatment
+colnames(DiffPoints)[1] <- "NumberN" #rename column
+Nrow <- sum(DiffPoints$NumberN) #figure out how many total rows will be added to the DF_extra dataframe
+AlcFe <- DiffPoints[1,1] #for each of these, it is creating a variable for the "vector" below
+AlcH2O <- DiffPoints[2,1]
+MDFe <- DiffPoints[3,1]
+MDH2O <- DiffPoints[4,1]
+
+#Add extra rows of NAs to equalize groups
+DF_extra <- data.frame(matrix(NA, nrow = Nrow, ncol = 10)) #create an empty dataframe filled with NA's
+vector <- rep(c("Alc+Fe", "Alc+H2O", "MD+Fe", "MD+H2O"), times = c(AlcFe, AlcH2O, MDFe, MDH2O)) #create the vector to add the treatment groups to the NA matrix
+DF_extra$Treatment <- vector #add in the Treatment column to the DF_extra dataframe
+DF_extra <- DF_extra[,c(1, 11,2:10)] #rearrange the columns so that they are in the same order as the original DF
+DF_extra <- setNames(DF_extra, names(data_frame)) #set the names of the new df to match the original df
+DF_extra$Sex <- c("F", "F", "M", "M") #Create correct sexes so it doesn't have to be done later
+FL <- rbind(data_frame, DF_extra) #Rbind the 2 dataframes so that we now have equal treatment group sizes
+print(FL %>% count(Treatment)) #check that the groups are now equal
+#rearrange to be in order of Treatment, otherwise the dots get accidentally reassigned to the wrong group
+FL <- FL[order(FL$Treatment), ]
+```
+
+# Fetal Liver Elements
+
+## All code is included for this first example, but thereafter, only the heading and graphs are shown. For all graphs, all data is graphed unless mentioned otherwise. Messages and warnings are excluded, since NA's were included to make all groups even, and I didn't want the code to print out these errors when they weren't necessary.
+
+## Fetal Liver Calcium
+```{r, warning = FALSE, message = FALSE}
+#Mean- calculate mean for column, repeat it to number of points, and create dataframe
+Mean <- tapply(FL$Calcium, as.character(FL$Treatment), mean, na.rm=TRUE) #make sure to change selected column to change data for graph
+Mean <- as.data.frame(rep(Mean, each = NumPoints)) #repeat mean a set number of times
+Mean$Treatment <- rep(ActualGroupOrder, each = NumPoints) #repeat treatment a set number of times
+colnames(Mean)[1] <- "Mean" #fix column name
+
+#Stdev- calculate standard deviation for column, repeat it to number of points, and create dataframe
+Stdev <- tapply(FL$Calcium, as.character(FL$Treatment), sd, na.rm=TRUE) #make sure to change selected column
+Stdev <- as.data.frame(rep(Stdev, each = NumPoints)) #repeat stdev a set number of times
+Stdev$Treatment <- rep(ActualGroupOrder, each = NumPoints) #repeat treatment a set number of times
+colnames(Stdev)[1] <- "Stdev" #fix column name
+
+#Combine mean, standard deviation, and individual data points
+dataframe_combine <- cbind(Mean, Stdev, FL$Calcium) #make sure to change selected column
+colnames(dataframe_combine)[5] <- "Value" #Fix name of individual data point column
+dataframe_combine <- dataframe_combine[-2] #Remove extra treatment column
+
+#Error bars
+dataframe_combine$Upper <- dataframe_combine$Mean + dataframe_combine$Stdev #upper error
+dataframe_combine$Lower <- dataframe_combine$Mean - dataframe_combine$Stdev #lower error
+
+#Make Graph#
+png("FetalLiver_ICPOES_Calcium_AllData_PAExFe_WetWt_Dotplot.png", units="in", width=7, height=7, res=600) 
+
+sets <- c("MD", "PAE", "MD-Iron", "PAE-Iron")
+
+p<- ggplot(dataframe_combine, aes(x=Treatment, y=Mean)) + 
+  geom_bar(stat="identity", color="black", aes(fill = Treatment),
+           position=position_dodge()) +
+  scale_fill_manual(values=c("MD" = "#0000CC",
+                             "PAE" = "#6699FF",
+                             "MD-Iron" = "#660066",
+                             "PAE-Iron" = "#9900CC"
+                             )) +
+  geom_errorbar(aes(ymin=Lower, ymax=Upper), width=.2,
+                position=position_dodge(.9)) + 
+  geom_point(aes(x=Treatment, y=Value),
+             size = 1.25, shape = 19, position = position_jitter(width=.15, height=0.1)) +
+  scale_y_continuous(expand = c(0,0), limits = c(0,60)) +
+  ggtitle("Fetal Liver Calcium") +
+  ylab(expression("Calcium (µg Ca/g wet weight tissue)")) + 
+  theme(plot.title = element_text(hjust = 0.5, size=18), 
+        axis.title.x = element_blank(), #gets rid of x-axis label
+        axis.title.y = element_text(size = 16),
+        panel.grid.major = element_blank(), #gets rid of major gridlines
+        panel.grid.minor = element_blank(), #gets rid of minor gridlines
+        panel.background = element_blank(), #turns background white instead of gray
+        axis.line = element_line(colour = "black"), 
+        legend.position="none", #gets rid of legend
+        axis.text=element_text(size=18, color = "black"), #sets size of x and y axis labels
+        axis.text.x=element_text(angle = 45, vjust = .95, hjust = 0.9),
+        axis.title=element_text(size=20,face="bold")) + 
+  scale_x_discrete (limits = sets)
+print(p)
+dev.off() 
+```
+```{r Fetal Liver Calcium, echo = FALSE}
+print(p)
+```
+
+## Fetal Liver Copper
+```{r, echo = FALSE, warning = FALSE, message = FALSE}
+#Mean
+Mean <- tapply(FL$Copper, as.character(FL$Treatment), mean, na.rm=TRUE) #make sure to change 
+Mean <- as.data.frame(rep(Mean, each = NumPoints))
+Mean$Treatment <- rep(ActualGroupOrder, each = NumPoints) 
+colnames(Mean)[1] <- "Mean"
+
+#Stdev
+Stdev <- tapply(FL$Copper, as.character(FL$Treatment), sd, na.rm=TRUE) #make sure to change 
+Stdev <- as.data.frame(rep(Stdev, each = NumPoints))
+Stdev$Treatment <- rep(ActualGroupOrder, each = NumPoints)
+colnames(Stdev)[1] <- "Stdev"
+
+#Combine
+dataframe_combine <- cbind(Mean, Stdev, FL$Copper) #make sure to change
+colnames(dataframe_combine)[5] <- "Value"
+dataframe_combine <- dataframe_combine[-2]
+
+#Error bars
+dataframe_combine$Upper <- dataframe_combine$Mean + dataframe_combine$Stdev
+dataframe_combine$Lower <- dataframe_combine$Mean - dataframe_combine$Stdev
+
+#Make Graph#
+png("FetalLiver_ICPOES_Copper_AllData_PAExFe_WetWt_Dotplot.png", units="in", width=7, height=7, res=600) 
+
+sets <- c("MD", "PAE", "MD-Iron", "PAE-Iron")
+
+p<- ggplot(dataframe_combine, aes(x=Treatment, y=Mean)) + 
+  geom_bar(stat="identity", color="black", aes(fill = Treatment),
+           position=position_dodge()) +
+  scale_fill_manual(values=c("MD" = "#0000CC",
+                             "PAE" = "#6699FF",
+                             "MD-Iron" = "#660066",
+                             "PAE-Iron" = "#9900CC"
+                             )) +
+  geom_errorbar(aes(ymin=Lower, ymax=Upper), width=.2,
+                position=position_dodge(.9)) + 
+  geom_point(aes(x=Treatment, y=Value),
+             size = 1.25, shape = 19, position = position_jitter(width=.15, height=0.1)) +
+  scale_y_continuous(expand = c(0,0), limits = c(0,15)) +
+  ggtitle("Fetal Liver Copper") +
+  ylab(expression("Copper (µg Cu/g wet weight tissue)")) + 
+  theme(plot.title = element_text(hjust = 0.5, size=18), 
+        axis.title.x = element_blank(), #gets rid of x-axis label
+        axis.title.y = element_text(size = 16),
+        panel.grid.major = element_blank(), #gets rid of major gridlines
+        panel.grid.minor = element_blank(), #gets rid of minor gridlines
+        panel.background = element_blank(), #turns background white instead of gray
+        axis.line = element_line(colour = "black"), 
+        legend.position="none", #gets rid of legend
+        axis.text=element_text(size=18, color = "black"), #sets size of x and y axis labels
+        axis.text.x=element_text(angle = 45, vjust = .95, hjust = 0.9),
+        axis.title=element_text(size=20,face="bold")) + 
+  scale_x_discrete (limits = sets)
+print(p)
+dev.off() 
+```
+```{r Fetal Liver Copper, echo = FALSE, warning = FALSE, message = FALSE}
+print(p)
+```
+
+## Fetal Liver Iron
+```{r, echo = FALSE, warning = FALSE, message = FALSE}
+#Mean
+Mean <- tapply(FL$Iron, as.character(FL$Treatment), mean, na.rm=TRUE) #make sure to change 
+Mean <- as.data.frame(rep(Mean, each = NumPoints))
+Mean$Treatment <- rep(ActualGroupOrder, each = NumPoints) 
+colnames(Mean)[1] <- "Mean"
+
+#Stdev
+Stdev <- tapply(FL$Iron, as.character(FL$Treatment), sd, na.rm=TRUE) #make sure to change 
+Stdev <- as.data.frame(rep(Stdev, each = NumPoints))
+Stdev$Treatment <- rep(ActualGroupOrder, each = NumPoints)
+colnames(Stdev)[1] <- "Stdev"
+
+#Combine
+dataframe_combine <- cbind(Mean, Stdev, FL$Iron) #make sure to change
+colnames(dataframe_combine)[5] <- "Value"
+dataframe_combine <- dataframe_combine[-2]
+
+#Error bars
+dataframe_combine$Upper <- dataframe_combine$Mean + dataframe_combine$Stdev
+dataframe_combine$Lower <- dataframe_combine$Mean - dataframe_combine$Stdev
+
+#Make Graph#
+png("FetalLiver_ICPOES_Iron_AllData_PAExFe_WetWt_Dotplot.png", units="in", width=7, height=7, res=600) 
+
+sets <- c("MD", "PAE", "MD-Iron", "PAE-Iron")
+
+p<- ggplot(dataframe_combine, aes(x=Treatment, y=Mean)) + 
+  geom_bar(stat="identity", color="black", aes(fill = Treatment),
+           position=position_dodge()) +
+  scale_fill_manual(values=c("MD" = "#0000CC",
+                             "PAE" = "#6699FF",
+                             "MD-Iron" = "#660066",
+                             "PAE-Iron" = "#9900CC"
+                             )) +
+  geom_errorbar(aes(ymin=Lower, ymax=Upper), width=.2,
+                position=position_dodge(.9)) + 
+  geom_point(aes(x=Treatment, y=Value),
+             size = 1.25, shape = 19, position = position_jitter(width=.15, height=0.1)) +
+  scale_y_continuous(expand = c(0,0), limits = c(0,250)) +
+  ggtitle("Fetal Liver Iron") +
+  ylab(expression("Iron (µg Fe/g wet weight tissue)")) + 
+  theme(plot.title = element_text(hjust = 0.5, size=18), 
+        axis.title.x = element_blank(), #gets rid of x-axis label
+        axis.title.y = element_text(size = 16),
+        panel.grid.major = element_blank(), #gets rid of major gridlines
+        panel.grid.minor = element_blank(), #gets rid of minor gridlines
+        panel.background = element_blank(), #turns background white instead of gray
+        axis.line = element_line(colour = "black"), 
+        legend.position="none", #gets rid of legend
+        axis.text=element_text(size=18, color = "black"), #sets size of x and y axis labels
+        axis.text.x=element_text(angle = 45, vjust = .95, hjust = 0.9),
+        axis.title=element_text(size=20,face="bold")) + 
+  scale_x_discrete (limits = sets)
+print(p)
+dev.off() 
+```
+```{r Fetal Liver Iron, echo = FALSE, warning = FALSE, message = FALSE}
+print(p)
+```
+
+## Fetal Liver Magnesium
+```{r, echo = FALSE, warning = FALSE, message = FALSE}
+#Mean
+Mean <- tapply(FL$Magnesium, as.character(FL$Treatment), mean, na.rm=TRUE) #make sure to change 
+Mean <- as.data.frame(rep(Mean, each = NumPoints))
+Mean$Treatment <- rep(ActualGroupOrder, each = NumPoints) 
+colnames(Mean)[1] <- "Mean"
+
+#Stdev
+Stdev <- tapply(FL$Magnesium, as.character(FL$Treatment), sd, na.rm=TRUE) #make sure to change 
+Stdev <- as.data.frame(rep(Stdev, each = NumPoints))
+Stdev$Treatment <- rep(ActualGroupOrder, each = NumPoints)
+colnames(Stdev)[1] <- "Stdev"
+
+#Combine
+dataframe_combine <- cbind(Mean, Stdev, FL$Magnesium) #make sure to change
+colnames(dataframe_combine)[5] <- "Value"
+dataframe_combine <- dataframe_combine[-2]
+
+#Error bars
+dataframe_combine$Upper <- dataframe_combine$Mean + dataframe_combine$Stdev
+dataframe_combine$Lower <- dataframe_combine$Mean - dataframe_combine$Stdev
+
+#Make Graph#
+png("FetalLiver_ICPOES_Magnesium_AllData_PAExFe_WetWt_Dotplot.png", units="in", width=7, height=7, res=600) 
+
+sets <- c("MD", "PAE", "MD-Iron", "PAE-Iron")
+
+p<- ggplot(dataframe_combine, aes(x=Treatment, y=Mean)) + 
+  geom_bar(stat="identity", color="black", aes(fill = Treatment),
+           position=position_dodge()) +
+  scale_fill_manual(values=c("MD" = "#0000CC",
+                             "PAE" = "#6699FF",
+                             "MD-Iron" = "#660066",
+                             "PAE-Iron" = "#9900CC"
+                             )) +
+  geom_errorbar(aes(ymin=Lower, ymax=Upper), width=.2,
+                position=position_dodge(.9)) + 
+  geom_point(aes(x=Treatment, y=Value),
+             size = 1.25, shape = 19, position = position_jitter(width=.15, height=0.1)) +
+  scale_y_continuous(expand = c(0,0), limits = c(0,200)) +
+  ggtitle("Fetal Liver Magnesium") +
+  ylab(expression("Magnesium (µg Mg/g wet weight tissue)")) + 
+  theme(plot.title = element_text(hjust = 0.5, size=18), 
+        axis.title.x = element_blank(), #gets rid of x-axis label
+        axis.title.y = element_text(size = 16),
+        panel.grid.major = element_blank(), #gets rid of major gridlines
+        panel.grid.minor = element_blank(), #gets rid of minor gridlines
+        panel.background = element_blank(), #turns background white instead of gray
+        axis.line = element_line(colour = "black"), 
+        legend.position="none", #gets rid of legend
+        axis.text=element_text(size=18, color = "black"), #sets size of x and y axis labels
+        axis.text.x=element_text(angle = 45, vjust = .95, hjust = 0.9),
+        axis.title=element_text(size=20,face="bold")) + 
+  scale_x_discrete (limits = sets)
+print(p)
+dev.off() 
+```
+```{r Fetal Liver Magnesium, echo = FALSE, warning = FALSE, message = FALSE}
+print(p)
+```
+
+## Fetal Liver Manganese
+```{r, echo = FALSE, warning = FALSE, message = FALSE}
+#Mean
+Mean <- tapply(FL$Manganese, as.character(FL$Treatment), mean, na.rm=TRUE) #make sure to change 
+Mean <- as.data.frame(rep(Mean, each = NumPoints))
+Mean$Treatment <- rep(ActualGroupOrder, each = NumPoints) 
+colnames(Mean)[1] <- "Mean"
+
+#Stdev
+Stdev <- tapply(FL$Manganese, as.character(FL$Treatment), sd, na.rm=TRUE) #make sure to change 
+Stdev <- as.data.frame(rep(Stdev, each = NumPoints))
+Stdev$Treatment <- rep(ActualGroupOrder, each = NumPoints)
+colnames(Stdev)[1] <- "Stdev"
+
+#Combine
+dataframe_combine <- cbind(Mean, Stdev, FL$Manganese) #make sure to change
+colnames(dataframe_combine)[5] <- "Value"
+dataframe_combine <- dataframe_combine[-2]
+
+#Error bars
+dataframe_combine$Upper <- dataframe_combine$Mean + dataframe_combine$Stdev
+dataframe_combine$Lower <- dataframe_combine$Mean - dataframe_combine$Stdev
+
+#Make Graph#
+png("FetalLiver_ICPOES_Manganese_AllData_PAExFe_WetWt_Dotplot.png", units="in", width=7, height=7, res=600) 
+
+sets <- c("MD", "PAE", "MD-Iron", "PAE-Iron")
+
+p<- ggplot(dataframe_combine, aes(x=Treatment, y=Mean)) + 
+  geom_bar(stat="identity", color="black", aes(fill = Treatment),
+           position=position_dodge()) +
+  scale_fill_manual(values=c("MD" = "#0000CC",
+                             "PAE" = "#6699FF",
+                             "MD-Iron" = "#660066",
+                             "PAE-Iron" = "#9900CC"
+                             )) +
+  geom_errorbar(aes(ymin=Lower, ymax=Upper), width=.2,
+                position=position_dodge(.9)) + 
+  geom_point(aes(x=Treatment, y=Value),
+             size = 1.25, shape = 19, position = position_jitter(width=.15, height=0.1)) +
+  scale_y_continuous(expand = c(0,0), limits = c(0,1)) +
+  ggtitle("Fetal Liver Manganese") +
+  ylab(expression("Manganese (µg Mn/g wet weight tissue)")) + 
+  theme(plot.title = element_text(hjust = 0.5, size=18), 
+        axis.title.x = element_blank(), #gets rid of x-axis label
+        axis.title.y = element_text(size = 16),
+        panel.grid.major = element_blank(), #gets rid of major gridlines
+        panel.grid.minor = element_blank(), #gets rid of minor gridlines
+        panel.background = element_blank(), #turns background white instead of gray
+        axis.line = element_line(colour = "black"), 
+        legend.position="none", #gets rid of legend
+        axis.text=element_text(size=18, color = "black"), #sets size of x and y axis labels
+        axis.text.x=element_text(angle = 45, vjust = .95, hjust = 0.9),
+        axis.title=element_text(size=20,face="bold")) + 
+  scale_x_discrete (limits = sets)
+print(p)
+dev.off() 
+```
+```{r Fetal Liver Manganese, echo = FALSE, warning = FALSE, message = FALSE}
+print(p)
+```
+
+## Fetal Liver Silicon
+```{r, echo = FALSE, warning = FALSE, message = FALSE}
+#Mean
+Mean <- tapply(FL$Silicon, as.character(FL$Treatment), mean, na.rm=TRUE) #make sure to change 
+Mean <- as.data.frame(rep(Mean, each = NumPoints))
+Mean$Treatment <- rep(ActualGroupOrder, each = NumPoints) 
+colnames(Mean)[1] <- "Mean"
+
+#Stdev
+Stdev <- tapply(FL$Silicon, as.character(FL$Treatment), sd, na.rm=TRUE) #make sure to change 
+Stdev <- as.data.frame(rep(Stdev, each = NumPoints))
+Stdev$Treatment <- rep(ActualGroupOrder, each = NumPoints)
+colnames(Stdev)[1] <- "Stdev"
+
+#Combine
+dataframe_combine <- cbind(Mean, Stdev, FL$Silicon) #make sure to change
+colnames(dataframe_combine)[5] <- "Value"
+dataframe_combine <- dataframe_combine[-2]
+
+#Error bars
+dataframe_combine$Upper <- dataframe_combine$Mean + dataframe_combine$Stdev
+dataframe_combine$Lower <- dataframe_combine$Mean - dataframe_combine$Stdev
+
+#Make Graph#
+png("FetalLiver_ICPOES_Silicon_AllData_PAExFe_WetWt_Dotplot.png", units="in", width=7, height=7, res=600) 
+
+sets <- c("MD", "PAE", "MD-Iron", "PAE-Iron")
+
+p<- ggplot(dataframe_combine, aes(x=Treatment, y=Mean)) + 
+  geom_bar(stat="identity", color="black", aes(fill = Treatment),
+           position=position_dodge()) +
+  scale_fill_manual(values=c("MD" = "#0000CC",
+                             "PAE" = "#6699FF",
+                             "MD-Iron" = "#660066",
+                             "PAE-Iron" = "#9900CC"
+                             )) +
+  geom_errorbar(aes(ymin=Lower, ymax=Upper), width=.2,
+                position=position_dodge(.9)) + 
+  geom_point(aes(x=Treatment, y=Value),
+             size = 1.25, shape = 19, position = position_jitter(width=.15, height=0.1)) +
+  scale_y_continuous(expand = c(0,0), limits = c(0,1)) +
+  ggtitle("Fetal Liver Silicon") +
+  ylab(expression("Silicon (µg Si/g wet weight tissue)")) + 
+  theme(plot.title = element_text(hjust = 0.5, size=18), 
+        axis.title.x = element_blank(), #gets rid of x-axis label
+        axis.title.y = element_text(size = 16),
+        panel.grid.major = element_blank(), #gets rid of major gridlines
+        panel.grid.minor = element_blank(), #gets rid of minor gridlines
+        panel.background = element_blank(), #turns background white instead of gray
+        axis.line = element_line(colour = "black"), 
+        legend.position="none", #gets rid of legend
+        axis.text=element_text(size=18, color = "black"), #sets size of x and y axis labels
+        axis.text.x=element_text(angle = 45, vjust = .95, hjust = 0.9),
+        axis.title=element_text(size=20,face="bold")) + 
+  scale_x_discrete (limits = sets)
+print(p)
+dev.off() 
+```
+```{r Fetal Liver Silicon, echo = FALSE, warning = FALSE, message = FALSE}
+print(p)
+```
+
+## Fetal Liver Sodium
+```{r, echo = FALSE, warning = FALSE, message = FALSE}
+#Mean
+Mean <- tapply(FL$Sodium, as.character(FL$Treatment), mean, na.rm=TRUE) #make sure to change 
+Mean <- as.data.frame(rep(Mean, each = NumPoints))
+Mean$Treatment <- rep(ActualGroupOrder, each = NumPoints) 
+colnames(Mean)[1] <- "Mean"
+
+#Stdev
+Stdev <- tapply(FL$Sodium, as.character(FL$Treatment), sd, na.rm=TRUE) #make sure to change 
+Stdev <- as.data.frame(rep(Stdev, each = NumPoints))
+Stdev$Treatment <- rep(ActualGroupOrder, each = NumPoints)
+colnames(Stdev)[1] <- "Stdev"
+
+#Combine
+dataframe_combine <- cbind(Mean, Stdev, FL$Sodium) #make sure to change
+colnames(dataframe_combine)[5] <- "Value"
+dataframe_combine <- dataframe_combine[-2]
+
+#Error bars
+dataframe_combine$Upper <- dataframe_combine$Mean + dataframe_combine$Stdev
+dataframe_combine$Lower <- dataframe_combine$Mean - dataframe_combine$Stdev
+
+#Make Graph#
+png("FetalLiver_ICPOES_Sodium_AllData_PAExFe_WetWt_Dotplot.png", units="in", width=7, height=7, res=600) 
+
+sets <- c("MD", "PAE", "MD-Iron", "PAE-Iron")
+
+p<- ggplot(dataframe_combine, aes(x=Treatment, y=Mean)) + 
+  geom_bar(stat="identity", color="black", aes(fill = Treatment),
+           position=position_dodge()) +
+  scale_fill_manual(values=c("MD" = "#0000CC",
+                             "PAE" = "#6699FF",
+                             "MD-Iron" = "#660066",
+                             "PAE-Iron" = "#9900CC"
+                             )) +
+  geom_errorbar(aes(ymin=Lower, ymax=Upper), width=.2,
+                position=position_dodge(.9)) + 
+  geom_point(aes(x=Treatment, y=Value),
+             size = 1.25, shape = 19, position = position_jitter(width=.15, height=0.1)) +
+  scale_y_continuous(expand = c(0,0), limits = c(0,1200)) +
+  ggtitle("Fetal Liver Sodium") +
+  ylab(expression("Sodium (µg Na/g wet weight tissue)")) + 
+  theme(plot.title = element_text(hjust = 0.5, size=18), 
+        axis.title.x = element_blank(), #gets rid of x-axis label
+        axis.title.y = element_text(size = 16),
+        panel.grid.major = element_blank(), #gets rid of major gridlines
+        panel.grid.minor = element_blank(), #gets rid of minor gridlines
+        panel.background = element_blank(), #turns background white instead of gray
+        axis.line = element_line(colour = "black"), 
+        legend.position="none", #gets rid of legend
+        axis.text=element_text(size=18, color = "black"), #sets size of x and y axis labels
+        axis.text.x=element_text(angle = 45, vjust = .95, hjust = 0.9),
+        axis.title=element_text(size=20,face="bold")) + 
+  scale_x_discrete (limits = sets)
+print(p)
+dev.off() 
+```
+```{r Fetal Liver Sodium, echo = FALSE, warning = FALSE, message = FALSE}
+print(p)
+```
+
+## Fetal Liver Zinc
+```{r, echo = FALSE, warning = FALSE, message = FALSE}
+#Mean
+Mean <- tapply(FL$Zinc, as.character(FL$Treatment), mean, na.rm=TRUE) #make sure to change 
+Mean <- as.data.frame(rep(Mean, each = NumPoints))
+Mean$Treatment <- rep(ActualGroupOrder, each = NumPoints) 
+colnames(Mean)[1] <- "Mean"
+
+#Stdev
+Stdev <- tapply(FL$Zinc, as.character(FL$Treatment), sd, na.rm=TRUE) #make sure to change 
+Stdev <- as.data.frame(rep(Stdev, each = NumPoints))
+Stdev$Treatment <- rep(ActualGroupOrder, each = NumPoints)
+colnames(Stdev)[1] <- "Stdev"
+
+#Combine
+dataframe_combine <- cbind(Mean, Stdev, FL$Zinc) #make sure to change
+colnames(dataframe_combine)[5] <- "Value"
+dataframe_combine <- dataframe_combine[-2]
+
+#Error bars
+dataframe_combine$Upper <- dataframe_combine$Mean + dataframe_combine$Stdev
+dataframe_combine$Lower <- dataframe_combine$Mean - dataframe_combine$Stdev
+
+#Make Graph#
+png("FetalLiver_ICPOES_Zinc_AllData_PAExFe_WetWt_Dotplot.png", units="in", width=7, height=7, res=600) 
+
+sets <- c("MD", "PAE", "MD-Iron", "PAE-Iron")
+
+p<- ggplot(dataframe_combine, aes(x=Treatment, y=Mean)) + 
+  geom_bar(stat="identity", color="black", aes(fill = Treatment),
+           position=position_dodge()) +
+  scale_fill_manual(values=c("MD" = "#0000CC",
+                             "PAE" = "#6699FF",
+                             "MD-Iron" = "#660066",
+                             "PAE-Iron" = "#9900CC"
+                             )) +
+  geom_errorbar(aes(ymin=Lower, ymax=Upper), width=.2,
+                position=position_dodge(.9)) + 
+  geom_point(aes(x=Treatment, y=Value),
+             size = 1.25, shape = 19, position = position_jitter(width=.15, height=0.1)) +
+  scale_y_continuous(expand = c(0,0), limits = c(0,80)) +
+  ggtitle("Fetal Liver Zinc") +
+  ylab(expression("Zinc (µg Zn/g wet weight tissue)")) + 
+  theme(plot.title = element_text(hjust = 0.5, size=18), 
+        axis.title.x = element_blank(), #gets rid of x-axis label
+        axis.title.y = element_text(size = 16),
+        panel.grid.major = element_blank(), #gets rid of major gridlines
+        panel.grid.minor = element_blank(), #gets rid of minor gridlines
+        panel.background = element_blank(), #turns background white instead of gray
+        axis.line = element_line(colour = "black"), 
+        legend.position="none", #gets rid of legend
+        axis.text=element_text(size=18, color = "black"), #sets size of x and y axis labels
+        axis.text.x=element_text(angle = 45, vjust = .95, hjust = 0.9),
+        axis.title=element_text(size=20,face="bold")) + 
+  scale_x_discrete (limits = sets)
+print(p)
+dev.off() 
+```
+```{r Fetal Liver Zinc, echo = FALSE, warning = FALSE, message = FALSE}
+print(p)
+```
+
+# Create new tables for fetal sex
+```{r}
+Males <- FL[ which(FL$Sex=='M'), ]
+Sex_NumPoints <- 9
+Females <- FL[ which(FL$Sex=='F'), ]
+```
+
+## Male Fetal Liver Minerals
+
+## Fetal Liver Calcium- Male
+```{r, warning = FALSE, message = FALSE}
+#Mean
+Mean <- tapply(Males$Calcium, as.character(Males$Treatment), mean, na.rm=TRUE) #change
+Mean <- as.data.frame(rep(Mean, each = Sex_NumPoints)) 
+Mean$Treatment <- rep(ActualGroupOrder, each = Sex_NumPoints) 
+colnames(Mean)[1] <- "Mean" 
+
+#Stdev
+Stdev <- tapply(Males$Calcium, as.character(Males$Treatment), sd, na.rm=TRUE) #change
+Stdev <- as.data.frame(rep(Stdev, each = Sex_NumPoints))
+Stdev$Treatment <- rep(ActualGroupOrder, each = Sex_NumPoints)
+colnames(Stdev)[1] <- "Stdev"
+
+#Combine mean, standard deviation, and individual data points
+dataframe_combine <- cbind(Mean, Stdev, Males$Calcium) #change
+colnames(dataframe_combine)[5] <- "Value"
+dataframe_combine <- dataframe_combine[-2]
+
+#Error bars
+dataframe_combine$Upper <- dataframe_combine$Mean + dataframe_combine$Stdev
+dataframe_combine$Lower <- dataframe_combine$Mean - dataframe_combine$Stdev 
+
+#Make Graph#
+png("FetalLiver_ICPOES_Calcium_Males_AllData_PAExFe_WetWt_Dotplot.png", units="in", width=7, height=7, res=600) 
+
+sets <- c("MD", "PAE", "MD-Iron", "PAE-Iron")
+
+p<- ggplot(dataframe_combine, aes(x=Treatment, y=Mean)) + 
+  geom_bar(stat="identity", color="black", aes(fill = Treatment),
+           position=position_dodge()) +
+  scale_fill_manual(values=c("MD" = "#0000CC",
+                             "PAE" = "#6699FF",
+                             "MD-Iron" = "#660066",
+                             "PAE-Iron" = "#9900CC"
+                             )) +
+  geom_errorbar(aes(ymin=Lower, ymax=Upper), width=.2,
+                position=position_dodge(.9)) + 
+  geom_point(aes(x=Treatment, y=Value),
+             size = 1.25, shape = 19, position = position_jitter(width=.15, height=0.1)) +
+  scale_y_continuous(expand = c(0,0), limits = c(0,60)) +
+  ggtitle("Fetal Liver Calcium- Males") +
+  ylab(expression("Calcium (µg Ca/g wet weight tissue)")) + 
+  theme(plot.title = element_text(hjust = 0.5, size=18), 
+        axis.title.x = element_blank(), #gets rid of x-axis label
+        axis.title.y = element_text(size = 16),
+        panel.grid.major = element_blank(), #gets rid of major gridlines
+        panel.grid.minor = element_blank(), #gets rid of minor gridlines
+        panel.background = element_blank(), #turns background white instead of gray
+        axis.line = element_line(colour = "black"), 
+        legend.position="none", #gets rid of legend
+        axis.text=element_text(size=18, color = "black"), #sets size of x and y axis labels
+        axis.text.x=element_text(angle = 45, vjust = .95, hjust = 0.9),
+        axis.title=element_text(size=20,face="bold")) + 
+  scale_x_discrete (limits = sets)
+print(p)
+dev.off() 
+```
+```{r Fetal Liver Calcium- Male, echo = FALSE}
+print(p)
+```
+
+## Fetal Liver Copper- Male
+```{r, echo = FALSE, warning = FALSE, message = FALSE}
+#Mean
+Mean <- tapply(Males$Copper, as.character(Males$Treatment), mean, na.rm=TRUE) #make sure to change 
+Mean <- as.data.frame(rep(Mean, each = Sex_NumPoints))
+Mean$Treatment <- rep(ActualGroupOrder, each = Sex_NumPoints) 
+colnames(Mean)[1] <- "Mean"
+
+#Stdev
+Stdev <- tapply(Males$Copper, as.character(Males$Treatment), sd, na.rm=TRUE) #make sure to change 
+Stdev <- as.data.frame(rep(Stdev, each = Sex_NumPoints))
+Stdev$Treatment <- rep(ActualGroupOrder, each = Sex_NumPoints)
+colnames(Stdev)[1] <- "Stdev"
+
+#Combine
+dataframe_combine <- cbind(Mean, Stdev, Males$Copper) #make sure to change
+colnames(dataframe_combine)[5] <- "Value"
+dataframe_combine <- dataframe_combine[-2]
+
+#Error bars
+dataframe_combine$Upper <- dataframe_combine$Mean + dataframe_combine$Stdev
+dataframe_combine$Lower <- dataframe_combine$Mean - dataframe_combine$Stdev
+
+#Make Graph#
+png("FetalLiver_ICPOES_Copper_Males_AllData_PAExFe_WetWeight_Dotplot.png", units="in", width=7, height=7, res=600) 
+
+sets <- c("MD", "PAE", "MD-Iron", "PAE-Iron")
+
+p<- ggplot(dataframe_combine, aes(x=Treatment, y=Mean)) + 
+  geom_bar(stat="identity", color="black", aes(fill = Treatment),
+           position=position_dodge()) +
+  scale_fill_manual(values=c("MD" = "#0000CC",
+                             "PAE" = "#6699FF",
+                             "MD-Iron" = "#660066",
+                             "PAE-Iron" = "#9900CC"
+                             )) +
+  geom_errorbar(aes(ymin=Lower, ymax=Upper), width=.2,
+                position=position_dodge(.9)) + 
+  geom_point(aes(x=Treatment, y=Value),
+             size = 1.25, shape = 19, position = position_jitter(width=.15, height=0.1)) +
+  scale_y_continuous(expand = c(0,0), limits = c(0,15)) +
+  ggtitle("Fetal Liver Copper- Males") +
+  ylab(expression("Copper (µg Cu/g wet weight tissue)")) + 
+  theme(plot.title = element_text(hjust = 0.5, size=18), 
+        axis.title.x = element_blank(), #gets rid of x-axis label
+        axis.title.y = element_text(size = 16),
+        panel.grid.major = element_blank(), #gets rid of major gridlines
+        panel.grid.minor = element_blank(), #gets rid of minor gridlines
+        panel.background = element_blank(), #turns background white instead of gray
+        axis.line = element_line(colour = "black"), 
+        legend.position="none", #gets rid of legend
+        axis.text=element_text(size=18, color = "black"), #sets size of x and y axis labels
+        axis.text.x=element_text(angle = 45, vjust = .95, hjust = 0.9),
+        axis.title=element_text(size=20,face="bold")) + 
+  scale_x_discrete (limits = sets)
+print(p)
+dev.off() 
+```
+```{r Fetal Liver Copper- Male, echo = FALSE, warning = FALSE, message = FALSE}
+print(p)
+```
+
+## Fetal Liver Iron- Male
+```{r, echo = FALSE, warning = FALSE, message = FALSE}
+#Mean
+Mean <- tapply(Males$Iron, as.character(Males$Treatment), mean, na.rm=TRUE) #make sure to change 
+Mean <- as.data.frame(rep(Mean, each = Sex_NumPoints))
+Mean$Treatment <- rep(ActualGroupOrder, each = Sex_NumPoints) 
+colnames(Mean)[1] <- "Mean"
+
+#Stdev
+Stdev <- tapply(Males$Iron, as.character(Males$Treatment), sd, na.rm=TRUE) #make sure to change 
+Stdev <- as.data.frame(rep(Stdev, each = Sex_NumPoints))
+Stdev$Treatment <- rep(ActualGroupOrder, each = Sex_NumPoints)
+colnames(Stdev)[1] <- "Stdev"
+
+#Combine
+dataframe_combine <- cbind(Mean, Stdev, Males$Iron) #make sure to change
+colnames(dataframe_combine)[5] <- "Value"
+dataframe_combine <- dataframe_combine[-2]
+
+#Error bars
+dataframe_combine$Upper <- dataframe_combine$Mean + dataframe_combine$Stdev
+dataframe_combine$Lower <- dataframe_combine$Mean - dataframe_combine$Stdev
+
+#Make Graph#
+png("FetalLiver_ICPOES_Iron_Males_AllData_PAExFe_WetWeight_Dotplot.png", units="in", width=7, height=7, res=600) 
+
+sets <- c("MD", "PAE", "MD-Iron", "PAE-Iron")
+
+p<- ggplot(dataframe_combine, aes(x=Treatment, y=Mean)) + 
+  geom_bar(stat="identity", color="black", aes(fill = Treatment),
+           position=position_dodge()) +
+  scale_fill_manual(values=c("MD" = "#0000CC",
+                             "PAE" = "#6699FF",
+                             "MD-Iron" = "#660066",
+                             "PAE-Iron" = "#9900CC"
+                             )) +
+  geom_errorbar(aes(ymin=Lower, ymax=Upper), width=.2,
+                position=position_dodge(.9)) + 
+  geom_point(aes(x=Treatment, y=Value),
+             size = 1.25, shape = 19, position = position_jitter(width=.15, height=0.1)) +
+  scale_y_continuous(expand = c(0,0), limits = c(0,250)) +
+  ggtitle("Fetal Liver Iron- Males") +
+  ylab(expression("Iron (µg Fe/g wet weight tissue)")) + 
+  theme(plot.title = element_text(hjust = 0.5, size=18), 
+        axis.title.x = element_blank(), #gets rid of x-axis label
+        axis.title.y = element_text(size = 16),
+        panel.grid.major = element_blank(), #gets rid of major gridlines
+        panel.grid.minor = element_blank(), #gets rid of minor gridlines
+        panel.background = element_blank(), #turns background white instead of gray
+        axis.line = element_line(colour = "black"), 
+        legend.position="none", #gets rid of legend
+        axis.text=element_text(size=18, color = "black"), #sets size of x and y axis labels
+        axis.text.x=element_text(angle = 45, vjust = .95, hjust = 0.9),
+        axis.title=element_text(size=20,face="bold")) + 
+  scale_x_discrete (limits = sets)
+print(p)
+dev.off() 
+```
+```{r Fetal Liver Iron- Male, echo = FALSE, warning = FALSE, message = FALSE}
+print(p)
+```
+
+## Fetal Liver Magnesium- Male
+```{r, echo = FALSE, warning = FALSE, message = FALSE}
+#Mean
+Mean <- tapply(Males$Magnesium, as.character(Males$Treatment), mean, na.rm=TRUE) #make sure to change 
+Mean <- as.data.frame(rep(Mean, each = Sex_NumPoints))
+Mean$Treatment <- rep(ActualGroupOrder, each = Sex_NumPoints) 
+colnames(Mean)[1] <- "Mean"
+
+#Stdev
+Stdev <- tapply(Males$Magnesium, as.character(Males$Treatment), sd, na.rm=TRUE) #make sure to change 
+Stdev <- as.data.frame(rep(Stdev, each = Sex_NumPoints))
+Stdev$Treatment <- rep(ActualGroupOrder, each = Sex_NumPoints)
+colnames(Stdev)[1] <- "Stdev"
+
+#Combine
+dataframe_combine <- cbind(Mean, Stdev, Males$Magnesium) #make sure to change
+colnames(dataframe_combine)[5] <- "Value"
+dataframe_combine <- dataframe_combine[-2]
+
+#Error bars
+dataframe_combine$Upper <- dataframe_combine$Mean + dataframe_combine$Stdev
+dataframe_combine$Lower <- dataframe_combine$Mean - dataframe_combine$Stdev
+
+#Make Graph#
+png("FetalLiver_ICPOES_Magnesium_Males_AllData_PAExFe_WetWt_Dotplot.png", units="in", width=7, height=7, res=600) 
+
+sets <- c("MD", "PAE", "MD-Iron", "PAE-Iron")
+
+p<- ggplot(dataframe_combine, aes(x=Treatment, y=Mean)) + 
+  geom_bar(stat="identity", color="black", aes(fill = Treatment),
+           position=position_dodge()) +
+  scale_fill_manual(values=c("MD" = "#0000CC",
+                             "PAE" = "#6699FF",
+                             "MD-Iron" = "#660066",
+                             "PAE-Iron" = "#9900CC"
+                             )) +
+  geom_errorbar(aes(ymin=Lower, ymax=Upper), width=.2,
+                position=position_dodge(.9)) + 
+  geom_point(aes(x=Treatment, y=Value),
+             size = 1.25, shape = 19, position = position_jitter(width=.15, height=0.1)) +
+  scale_y_continuous(expand = c(0,0), limits = c(0,200)) +
+  ggtitle("Fetal Liver Magnesium- Males") +
+  ylab(expression("Magnesium (µg Mg/g wet weight tissue)")) + 
+  theme(plot.title = element_text(hjust = 0.5, size=18), 
+        axis.title.x = element_blank(), #gets rid of x-axis label
+        axis.title.y = element_text(size = 16),
+        panel.grid.major = element_blank(), #gets rid of major gridlines
+        panel.grid.minor = element_blank(), #gets rid of minor gridlines
+        panel.background = element_blank(), #turns background white instead of gray
+        axis.line = element_line(colour = "black"), 
+        legend.position="none", #gets rid of legend
+        axis.text=element_text(size=18, color = "black"), #sets size of x and y axis labels
+        axis.text.x=element_text(angle = 45, vjust = .95, hjust = 0.9),
+        axis.title=element_text(size=20,face="bold")) + 
+  scale_x_discrete (limits = sets)
+print(p)
+dev.off() 
+```
+```{r Fetal Liver Magnesium- Male, echo = FALSE, warning = FALSE, message = FALSE}
+print(p)
+```
+
+## Fetal Liver Manganese- Male
+```{r, echo = FALSE, warning = FALSE, message = FALSE}
+#Mean
+Mean <- tapply(Males$Manganese, as.character(Males$Treatment), mean, na.rm=TRUE) #make sure to change 
+Mean <- as.data.frame(rep(Mean, each = Sex_NumPoints))
+Mean$Treatment <- rep(ActualGroupOrder, each = Sex_NumPoints) 
+colnames(Mean)[1] <- "Mean"
+
+#Stdev
+Stdev <- tapply(Males$Manganese, as.character(Males$Treatment), sd, na.rm=TRUE) #make sure to change 
+Stdev <- as.data.frame(rep(Stdev, each = Sex_NumPoints))
+Stdev$Treatment <- rep(ActualGroupOrder, each = Sex_NumPoints)
+colnames(Stdev)[1] <- "Stdev"
+
+#Combine
+dataframe_combine <- cbind(Mean, Stdev, Males$Manganese) #make sure to change
+colnames(dataframe_combine)[5] <- "Value"
+dataframe_combine <- dataframe_combine[-2]
+
+#Error bars
+dataframe_combine$Upper <- dataframe_combine$Mean + dataframe_combine$Stdev
+dataframe_combine$Lower <- dataframe_combine$Mean - dataframe_combine$Stdev
+
+#Make Graph#
+png("FetalLiver_ICPOES_Manganese_Males_AllData_PAExFe_WetWt_Dotplot.png", units="in", width=7, height=7, res=600) 
+
+sets <- c("MD", "PAE", "MD-Iron", "PAE-Iron")
+
+p<- ggplot(dataframe_combine, aes(x=Treatment, y=Mean)) + 
+  geom_bar(stat="identity", color="black", aes(fill = Treatment),
+           position=position_dodge()) +
+  scale_fill_manual(values=c("MD" = "#0000CC",
+                             "PAE" = "#6699FF",
+                             "MD-Iron" = "#660066",
+                             "PAE-Iron" = "#9900CC"
+                             )) +
+  geom_errorbar(aes(ymin=Lower, ymax=Upper), width=.2,
+                position=position_dodge(.9)) + 
+  geom_point(aes(x=Treatment, y=Value),
+             size = 1.25, shape = 19, position = position_jitter(width=.15, height=0.1)) +
+  scale_y_continuous(expand = c(0,0), limits = c(0,1)) +
+  ggtitle("Fetal Liver Manganese- Males") +
+  ylab(expression("Manganese (µg Mn/g wet weight tissue)")) + 
+  theme(plot.title = element_text(hjust = 0.5, size=18), 
+        axis.title.x = element_blank(), #gets rid of x-axis label
+        axis.title.y = element_text(size = 16),
+        panel.grid.major = element_blank(), #gets rid of major gridlines
+        panel.grid.minor = element_blank(), #gets rid of minor gridlines
+        panel.background = element_blank(), #turns background white instead of gray
+        axis.line = element_line(colour = "black"), 
+        legend.position="none", #gets rid of legend
+        axis.text=element_text(size=18, color = "black"), #sets size of x and y axis labels
+        axis.text.x=element_text(angle = 45, vjust = .95, hjust = 0.9),
+        axis.title=element_text(size=20,face="bold")) + 
+  scale_x_discrete (limits = sets)
+print(p)
+dev.off() 
+```
+```{r Fetal Liver Manganese- Male, echo = FALSE, warning = FALSE, message = FALSE}
+print(p)
+```
+
+## Fetal Liver Silicon- Male
+```{r, echo = FALSE, warning = FALSE, message = FALSE}
+#Mean
+Mean <- tapply(Males$Silicon, as.character(Males$Treatment), mean, na.rm=TRUE) #make sure to change 
+Mean <- as.data.frame(rep(Mean, each = Sex_NumPoints))
+Mean$Treatment <- rep(ActualGroupOrder, each = Sex_NumPoints) 
+colnames(Mean)[1] <- "Mean"
+
+#Stdev
+Stdev <- tapply(Males$Silicon, as.character(Males$Treatment), sd, na.rm=TRUE) #make sure to change 
+Stdev <- as.data.frame(rep(Stdev, each = Sex_NumPoints))
+Stdev$Treatment <- rep(ActualGroupOrder, each = Sex_NumPoints)
+colnames(Stdev)[1] <- "Stdev"
+
+#Combine
+dataframe_combine <- cbind(Mean, Stdev, Males$Silicon) #make sure to change
+colnames(dataframe_combine)[5] <- "Value"
+dataframe_combine <- dataframe_combine[-2]
+
+#Error bars
+dataframe_combine$Upper <- dataframe_combine$Mean + dataframe_combine$Stdev
+dataframe_combine$Lower <- dataframe_combine$Mean - dataframe_combine$Stdev
+
+#Make Graph#
+png("FetalLiver_ICPOES_Silicon_Males_AllData_PAExFe_WetWt_Dotplot.png", units="in", width=7, height=7, res=600) 
+
+sets <- c("MD", "PAE", "MD-Iron", "PAE-Iron")
+
+p<- ggplot(dataframe_combine, aes(x=Treatment, y=Mean)) + 
+  geom_bar(stat="identity", color="black", aes(fill = Treatment),
+           position=position_dodge()) +
+  scale_fill_manual(values=c("MD" = "#0000CC",
+                             "PAE" = "#6699FF",
+                             "MD-Iron" = "#660066",
+                             "PAE-Iron" = "#9900CC"
+                             )) +
+  geom_errorbar(aes(ymin=Lower, ymax=Upper), width=.2,
+                position=position_dodge(.9)) + 
+  geom_point(aes(x=Treatment, y=Value),
+             size = 1.25, shape = 19, position = position_jitter(width=.15, height=0.1)) +
+  scale_y_continuous(expand = c(0,0), limits = c(0,1)) +
+  ggtitle("Fetal Liver Silicon- Males") +
+  ylab(expression("Silicon (µg Si/g wet weight tissue)")) + 
+  theme(plot.title = element_text(hjust = 0.5, size=18), 
+        axis.title.x = element_blank(), #gets rid of x-axis label
+        axis.title.y = element_text(size = 16),
+        panel.grid.major = element_blank(), #gets rid of major gridlines
+        panel.grid.minor = element_blank(), #gets rid of minor gridlines
+        panel.background = element_blank(), #turns background white instead of gray
+        axis.line = element_line(colour = "black"), 
+        legend.position="none", #gets rid of legend
+        axis.text=element_text(size=18, color = "black"), #sets size of x and y axis labels
+        axis.text.x=element_text(angle = 45, vjust = .95, hjust = 0.9),
+        axis.title=element_text(size=20,face="bold")) + 
+  scale_x_discrete (limits = sets)
+print(p)
+dev.off() 
+```
+```{r Fetal Liver Silicon- Male, echo = FALSE, warning = FALSE, message = FALSE}
+print(p)
+```
+
+## Fetal Liver Sodium- Male
+```{r, echo = FALSE, warning = FALSE, message = FALSE}
+#Mean
+Mean <- tapply(Males$Sodium, as.character(Males$Treatment), mean, na.rm=TRUE) #make sure to change 
+Mean <- as.data.frame(rep(Mean, each = Sex_NumPoints))
+Mean$Treatment <- rep(ActualGroupOrder, each = Sex_NumPoints) 
+colnames(Mean)[1] <- "Mean"
+
+#Stdev
+Stdev <- tapply(Males$Sodium, as.character(Males$Treatment), sd, na.rm=TRUE) #make sure to change 
+Stdev <- as.data.frame(rep(Stdev, each = Sex_NumPoints))
+Stdev$Treatment <- rep(ActualGroupOrder, each = Sex_NumPoints)
+colnames(Stdev)[1] <- "Stdev"
+
+#Combine
+dataframe_combine <- cbind(Mean, Stdev, Males$Sodium) #make sure to change
+colnames(dataframe_combine)[5] <- "Value"
+dataframe_combine <- dataframe_combine[-2]
+
+#Error bars
+dataframe_combine$Upper <- dataframe_combine$Mean + dataframe_combine$Stdev
+dataframe_combine$Lower <- dataframe_combine$Mean - dataframe_combine$Stdev
+
+#Make Graph#
+png("FetalLiver_ICPOES_Sodium_Males_AllData_PAExFe_WetWt_Dotplot.png", units="in", width=7, height=7, res=600) 
+
+sets <- c("MD", "PAE", "MD-Iron", "PAE-Iron")
+
+p<- ggplot(dataframe_combine, aes(x=Treatment, y=Mean)) + 
+  geom_bar(stat="identity", color="black", aes(fill = Treatment),
+           position=position_dodge()) +
+  scale_fill_manual(values=c("MD" = "#0000CC",
+                             "PAE" = "#6699FF",
+                             "MD-Iron" = "#660066",
+                             "PAE-Iron" = "#9900CC"
+                             )) +
+  geom_errorbar(aes(ymin=Lower, ymax=Upper), width=.2,
+                position=position_dodge(.9)) + 
+  geom_point(aes(x=Treatment, y=Value),
+             size = 1.25, shape = 19, position = position_jitter(width=.15, height=0.1)) +
+  scale_y_continuous(expand = c(0,0), limits = c(0,1200)) +
+  ggtitle("Fetal Liver Sodium- Males") +
+  ylab(expression("Sodium (µg Na/g wet weight tissue)")) + 
+  theme(plot.title = element_text(hjust = 0.5, size=18), 
+        axis.title.x = element_blank(), #gets rid of x-axis label
+        axis.title.y = element_text(size = 16),
+        panel.grid.major = element_blank(), #gets rid of major gridlines
+        panel.grid.minor = element_blank(), #gets rid of minor gridlines
+        panel.background = element_blank(), #turns background white instead of gray
+        axis.line = element_line(colour = "black"), 
+        legend.position="none", #gets rid of legend
+        axis.text=element_text(size=18, color = "black"), #sets size of x and y axis labels
+        axis.text.x=element_text(angle = 45, vjust = .95, hjust = 0.9),
+        axis.title=element_text(size=20,face="bold")) + 
+  scale_x_discrete (limits = sets)
+print(p)
+dev.off() 
+```
+```{r Fetal Liver Sodium- Male, echo = FALSE, warning = FALSE, message = FALSE}
+print(p)
+```
+
+## Fetal Liver Zinc- Male
+```{r, echo = FALSE, warning = FALSE, message = FALSE}
+#Mean
+Mean <- tapply(Males$Zinc, as.character(Males$Treatment), mean, na.rm=TRUE) #make sure to change 
+Mean <- as.data.frame(rep(Mean, each = Sex_NumPoints))
+Mean$Treatment <- rep(ActualGroupOrder, each = Sex_NumPoints) 
+colnames(Mean)[1] <- "Mean"
+
+#Stdev
+Stdev <- tapply(Males$Zinc, as.character(Males$Treatment), sd, na.rm=TRUE) #make sure to change 
+Stdev <- as.data.frame(rep(Stdev, each = Sex_NumPoints))
+Stdev$Treatment <- rep(ActualGroupOrder, each = Sex_NumPoints)
+colnames(Stdev)[1] <- "Stdev"
+
+#Combine
+dataframe_combine <- cbind(Mean, Stdev, Males$Zinc) #make sure to change
+colnames(dataframe_combine)[5] <- "Value"
+dataframe_combine <- dataframe_combine[-2]
+
+#Error bars
+dataframe_combine$Upper <- dataframe_combine$Mean + dataframe_combine$Stdev
+dataframe_combine$Lower <- dataframe_combine$Mean - dataframe_combine$Stdev
+
+#Make Graph#
+png("FetalLiver_ICPOES_Zinc_Males_AllData_PAExFe_WetWt_Dotplot.png", units="in", width=7, height=7, res=600) 
+
+sets <- c("MD", "PAE", "MD-Iron", "PAE-Iron")
+
+p<- ggplot(dataframe_combine, aes(x=Treatment, y=Mean)) + 
+  geom_bar(stat="identity", color="black", aes(fill = Treatment),
+           position=position_dodge()) +
+  scale_fill_manual(values=c("MD" = "#0000CC",
+                             "PAE" = "#6699FF",
+                             "MD-Iron" = "#660066",
+                             "PAE-Iron" = "#9900CC"
+                             )) +
+  geom_errorbar(aes(ymin=Lower, ymax=Upper), width=.2,
+                position=position_dodge(.9)) + 
+  geom_point(aes(x=Treatment, y=Value),
+             size = 1.25, shape = 19, position = position_jitter(width=.15, height=0.1)) +
+  scale_y_continuous(expand = c(0,0), limits = c(0,80)) +
+  ggtitle("Fetal Liver Zinc- Males") +
+  ylab(expression("Zinc (µg Zn/g wet weight tissue)")) + 
+  theme(plot.title = element_text(hjust = 0.5, size=18), 
+        axis.title.x = element_blank(), #gets rid of x-axis label
+        axis.title.y = element_text(size = 16),
+        panel.grid.major = element_blank(), #gets rid of major gridlines
+        panel.grid.minor = element_blank(), #gets rid of minor gridlines
+        panel.background = element_blank(), #turns background white instead of gray
+        axis.line = element_line(colour = "black"), 
+        legend.position="none", #gets rid of legend
+        axis.text=element_text(size=18, color = "black"), #sets size of x and y axis labels
+        axis.text.x=element_text(angle = 45, vjust = .95, hjust = 0.9),
+        axis.title=element_text(size=20,face="bold")) + 
+  scale_x_discrete (limits = sets)
+print(p)
+dev.off() 
+```
+```{r Fetal Liver Zinc- Male, echo = FALSE, warning = FALSE, message = FALSE}
+print(p)
+```
+
+## Female Fetal Liver Minerals
+
+## Fetal Liver Calcium- Female
+```{r, warning = FALSE, message = FALSE}
+#Mean
+Mean <- tapply(Females$Calcium, as.character(Females$Treatment), mean, na.rm=TRUE) #change
+Mean <- as.data.frame(rep(Mean, each = Sex_NumPoints)) 
+Mean$Treatment <- rep(ActualGroupOrder, each = Sex_NumPoints) 
+colnames(Mean)[1] <- "Mean" 
+
+#Stdev
+Stdev <- tapply(Females$Calcium, as.character(Females$Treatment), sd, na.rm=TRUE) #change
+Stdev <- as.data.frame(rep(Stdev, each = Sex_NumPoints))
+Stdev$Treatment <- rep(ActualGroupOrder, each = Sex_NumPoints)
+colnames(Stdev)[1] <- "Stdev"
+
+#Combine mean, standard deviation, and individual data points
+dataframe_combine <- cbind(Mean, Stdev, Females$Calcium) #change
+colnames(dataframe_combine)[5] <- "Value"
+dataframe_combine <- dataframe_combine[-2]
+
+#Error bars
+dataframe_combine$Upper <- dataframe_combine$Mean + dataframe_combine$Stdev
+dataframe_combine$Lower <- dataframe_combine$Mean - dataframe_combine$Stdev 
+
+#Make Graph#
+png("FetalLiver_ICPOES_Calcium_woutOutliers_Females_AllData_PAExFe_WetWt_Dotplot.png", units="in", width=7, height=7, res=600) 
+sets <- c("MD", "PAE", "MD-Iron", "PAE-Iron")
+
+p<- ggplot(dataframe_combine, aes(x=Treatment, y=Mean)) + 
+  geom_bar(stat="identity", color="black", aes(fill = Treatment),
+           position=position_dodge()) +
+  scale_fill_manual(values=c("MD" = "#0000CC",
+                             "PAE" = "#6699FF",
+                             "MD-Iron" = "#660066",
+                             "PAE-Iron" = "#9900CC"
+                             )) +
+  geom_errorbar(aes(ymin=Lower, ymax=Upper), width=.2,
+                position=position_dodge(.9)) + 
+  geom_point(aes(x=Treatment, y=Value),
+             size = 1.25, shape = 19, position = position_jitter(width=.15, height=0.1)) +
+  scale_y_continuous(expand = c(0,0), limits = c(0,60)) +
+  ggtitle("Fetal Liver Calcium- Females") +
+  ylab(expression("Calcium (µg Ca/g wet weight tissue)")) + 
+  theme(plot.title = element_text(hjust = 0.5, size=18), 
+        axis.title.x = element_blank(), #gets rid of x-axis label
+        axis.title.y = element_text(size = 16),
+        panel.grid.major = element_blank(), #gets rid of major gridlines
+        panel.grid.minor = element_blank(), #gets rid of minor gridlines
+        panel.background = element_blank(), #turns background white instead of gray
+        axis.line = element_line(colour = "black"), 
+        legend.position="none", #gets rid of legend
+        axis.text=element_text(size=18, color = "black"), #sets size of x and y axis labels
+        axis.text.x=element_text(angle = 45, vjust = .95, hjust = 0.9),
+        axis.title=element_text(size=20,face="bold")) + 
+  scale_x_discrete (limits = sets)
+print(p)
+dev.off() 
+```
+```{r Fetal Liver Calcium w/out Outliers- Female, echo = FALSE}
+print(p)
+```
+
+## Fetal Liver Copper- Female
+```{r, echo = FALSE, warning = FALSE, message = FALSE}
+#Mean
+Mean <- tapply(Females$Copper, as.character(Females$Treatment), mean, na.rm=TRUE) #make sure to change 
+Mean <- as.data.frame(rep(Mean, each = Sex_NumPoints))
+Mean$Treatment <- rep(ActualGroupOrder, each = Sex_NumPoints) 
+colnames(Mean)[1] <- "Mean"
+
+#Stdev
+Stdev <- tapply(Females$Copper, as.character(Females$Treatment), sd, na.rm=TRUE) #make sure to change 
+Stdev <- as.data.frame(rep(Stdev, each = Sex_NumPoints))
+Stdev$Treatment <- rep(ActualGroupOrder, each = Sex_NumPoints)
+colnames(Stdev)[1] <- "Stdev"
+
+#Combine
+dataframe_combine <- cbind(Mean, Stdev, Females$Copper) #make sure to change
+colnames(dataframe_combine)[5] <- "Value"
+dataframe_combine <- dataframe_combine[-2]
+
+#Error bars
+dataframe_combine$Upper <- dataframe_combine$Mean + dataframe_combine$Stdev
+dataframe_combine$Lower <- dataframe_combine$Mean - dataframe_combine$Stdev
+
+#Make Graph#
+png("FetalLiver_ICPOES_Copper_Females_AllData_PAExFe_WetWt_Dotplot.png", units="in", width=7, height=7, res=600) 
+
+sets <- c("MD", "PAE", "MD-Iron", "PAE-Iron")
+
+p<- ggplot(dataframe_combine, aes(x=Treatment, y=Mean)) + 
+  geom_bar(stat="identity", color="black", aes(fill = Treatment),
+           position=position_dodge()) +
+  scale_fill_manual(values=c("MD" = "#0000CC",
+                             "PAE" = "#6699FF",
+                             "MD-Iron" = "#660066",
+                             "PAE-Iron" = "#9900CC"
+                             )) +
+  geom_errorbar(aes(ymin=Lower, ymax=Upper), width=.2,
+                position=position_dodge(.9)) + 
+  geom_point(aes(x=Treatment, y=Value),
+             size = 1.25, shape = 19, position = position_jitter(width=.15, height=0.1)) +
+  scale_y_continuous(expand = c(0,0), limits = c(0,15)) +
+  ggtitle("Fetal Liver Copper- Females") +
+  ylab(expression("Copper (µg Cu/g wet weight tissue)")) + 
+  theme(plot.title = element_text(hjust = 0.5, size=18), 
+        axis.title.x = element_blank(), #gets rid of x-axis label
+        axis.title.y = element_text(size = 16),
+        panel.grid.major = element_blank(), #gets rid of major gridlines
+        panel.grid.minor = element_blank(), #gets rid of minor gridlines
+        panel.background = element_blank(), #turns background white instead of gray
+        axis.line = element_line(colour = "black"), 
+        legend.position="none", #gets rid of legend
+        axis.text=element_text(size=18, color = "black"), #sets size of x and y axis labels
+        axis.text.x=element_text(angle = 45, vjust = .95, hjust = 0.9),
+        axis.title=element_text(size=20,face="bold")) + 
+  scale_x_discrete (limits = sets)
+print(p)
+dev.off() 
+```
+```{r Fetal Liver Copper- Female, echo = FALSE, warning = FALSE, message = FALSE}
+print(p)
+```
+
+## Fetal Liver Iron- Female
+```{r, echo = FALSE, warning = FALSE, message = FALSE}
+#Mean
+Mean <- tapply(Females$Iron, as.character(Females$Treatment), mean, na.rm=TRUE) #make sure to change 
+Mean <- as.data.frame(rep(Mean, each = Sex_NumPoints))
+Mean$Treatment <- rep(ActualGroupOrder, each = Sex_NumPoints) 
+colnames(Mean)[1] <- "Mean"
+
+#Stdev
+Stdev <- tapply(Females$Iron, as.character(Females$Treatment), sd, na.rm=TRUE) #make sure to change 
+Stdev <- as.data.frame(rep(Stdev, each = Sex_NumPoints))
+Stdev$Treatment <- rep(ActualGroupOrder, each = Sex_NumPoints)
+colnames(Stdev)[1] <- "Stdev"
+
+#Combine
+dataframe_combine <- cbind(Mean, Stdev, Females$Iron) #make sure to change
+colnames(dataframe_combine)[5] <- "Value"
+dataframe_combine <- dataframe_combine[-2]
+
+#Error bars
+dataframe_combine$Upper <- dataframe_combine$Mean + dataframe_combine$Stdev
+dataframe_combine$Lower <- dataframe_combine$Mean - dataframe_combine$Stdev
+
+#Make Graph#
+png("FetalLiver_ICPOES_Iron_Females_AllData_PAExFe_WetWt_Dotplot.png", units="in", width=7, height=7, res=600) 
+
+sets <- c("MD", "PAE", "MD-Iron", "PAE-Iron")
+
+p<- ggplot(dataframe_combine, aes(x=Treatment, y=Mean)) + 
+  geom_bar(stat="identity", color="black", aes(fill = Treatment),
+           position=position_dodge()) +
+  scale_fill_manual(values=c("MD" = "#0000CC",
+                             "PAE" = "#6699FF",
+                             "MD-Iron" = "#660066",
+                             "PAE-Iron" = "#9900CC"
+                             )) +
+  geom_errorbar(aes(ymin=Lower, ymax=Upper), width=.2,
+                position=position_dodge(.9)) + 
+  geom_point(aes(x=Treatment, y=Value),
+             size = 1.25, shape = 19, position = position_jitter(width=.15, height=0.1)) +
+  scale_y_continuous(expand = c(0,0), limits = c(0,250)) +
+  ggtitle("Fetal Liver Iron- Females") +
+  ylab(expression("Iron (µg Fe/g wet weight tissue)")) + 
+  theme(plot.title = element_text(hjust = 0.5, size=18), 
+        axis.title.x = element_blank(), #gets rid of x-axis label
+        axis.title.y = element_text(size = 16),
+        panel.grid.major = element_blank(), #gets rid of major gridlines
+        panel.grid.minor = element_blank(), #gets rid of minor gridlines
+        panel.background = element_blank(), #turns background white instead of gray
+        axis.line = element_line(colour = "black"), 
+        legend.position="none", #gets rid of legend
+        axis.text=element_text(size=18, color = "black"), #sets size of x and y axis labels
+        axis.text.x=element_text(angle = 45, vjust = .95, hjust = 0.9),
+        axis.title=element_text(size=20,face="bold")) + 
+  scale_x_discrete (limits = sets)
+print(p)
+dev.off() 
+```
+```{r Fetal Liver Iron- Female, echo = FALSE, warning = FALSE, message = FALSE}
+print(p)
+```
+
+## Fetal Liver Magnesium- Female
+```{r, echo = FALSE, warning = FALSE, message = FALSE}
+#Mean
+Mean <- tapply(Females$Magnesium, as.character(Females$Treatment), mean, na.rm=TRUE) #make sure to change 
+Mean <- as.data.frame(rep(Mean, each = Sex_NumPoints))
+Mean$Treatment <- rep(ActualGroupOrder, each = Sex_NumPoints) 
+colnames(Mean)[1] <- "Mean"
+
+#Stdev
+Stdev <- tapply(Females$Magnesium, as.character(Females$Treatment), sd, na.rm=TRUE) #make sure to change 
+Stdev <- as.data.frame(rep(Stdev, each = Sex_NumPoints))
+Stdev$Treatment <- rep(ActualGroupOrder, each = Sex_NumPoints)
+colnames(Stdev)[1] <- "Stdev"
+
+#Combine
+dataframe_combine <- cbind(Mean, Stdev, Females$Magnesium) #make sure to change
+colnames(dataframe_combine)[5] <- "Value"
+dataframe_combine <- dataframe_combine[-2]
+
+#Error bars
+dataframe_combine$Upper <- dataframe_combine$Mean + dataframe_combine$Stdev
+dataframe_combine$Lower <- dataframe_combine$Mean - dataframe_combine$Stdev
+
+#Make Graph#
+png("FetalLiver_ICPOES_Magnesium_Females_AllData_PAExFe_WetWt_Dotplot.png", units="in", width=7, height=7, res=600) 
+
+sets <- c("MD", "PAE", "MD-Iron", "PAE-Iron")
+
+p<- ggplot(dataframe_combine, aes(x=Treatment, y=Mean)) + 
+  geom_bar(stat="identity", color="black", aes(fill = Treatment),
+           position=position_dodge()) +
+  scale_fill_manual(values=c("MD" = "#0000CC",
+                             "PAE" = "#6699FF",
+                             "MD-Iron" = "#660066",
+                             "PAE-Iron" = "#9900CC"
+                             )) +
+  geom_errorbar(aes(ymin=Lower, ymax=Upper), width=.2,
+                position=position_dodge(.9)) + 
+  geom_point(aes(x=Treatment, y=Value),
+             size = 1.25, shape = 19, position = position_jitter(width=.15, height=0.1)) +
+  scale_y_continuous(expand = c(0,0), limits = c(0,200)) +
+  ggtitle("Fetal Liver Magnesium- Females") +
+  ylab(expression("Magnesium (µg Mg/g wet weight tissue)")) + 
+  theme(plot.title = element_text(hjust = 0.5, size=18), 
+        axis.title.x = element_blank(), #gets rid of x-axis label
+        axis.title.y = element_text(size = 16),
+        panel.grid.major = element_blank(), #gets rid of major gridlines
+        panel.grid.minor = element_blank(), #gets rid of minor gridlines
+        panel.background = element_blank(), #turns background white instead of gray
+        axis.line = element_line(colour = "black"), 
+        legend.position="none", #gets rid of legend
+        axis.text=element_text(size=18, color = "black"), #sets size of x and y axis labels
+        axis.text.x=element_text(angle = 45, vjust = .95, hjust = 0.9),
+        axis.title=element_text(size=20,face="bold")) + 
+  scale_x_discrete (limits = sets)
+print(p)
+dev.off() 
+```
+```{r Fetal Liver Magnesium- Female, echo = FALSE, warning = FALSE, message = FALSE}
+print(p)
+```
+
+## Fetal Liver Manganese- Female
+```{r, echo = FALSE, warning = FALSE, message = FALSE}
+#Mean
+Mean <- tapply(Females$Manganese, as.character(Females$Treatment), mean, na.rm=TRUE) #make sure to change 
+Mean <- as.data.frame(rep(Mean, each = Sex_NumPoints))
+Mean$Treatment <- rep(ActualGroupOrder, each = Sex_NumPoints) 
+colnames(Mean)[1] <- "Mean"
+
+#Stdev
+Stdev <- tapply(Females$Manganese, as.character(Females$Treatment), sd, na.rm=TRUE) #make sure to change 
+Stdev <- as.data.frame(rep(Stdev, each = Sex_NumPoints))
+Stdev$Treatment <- rep(ActualGroupOrder, each = Sex_NumPoints)
+colnames(Stdev)[1] <- "Stdev"
+
+#Combine
+dataframe_combine <- cbind(Mean, Stdev, Females$Manganese) #make sure to change
+colnames(dataframe_combine)[5] <- "Value"
+dataframe_combine <- dataframe_combine[-2]
+
+#Error bars
+dataframe_combine$Upper <- dataframe_combine$Mean + dataframe_combine$Stdev
+dataframe_combine$Lower <- dataframe_combine$Mean - dataframe_combine$Stdev
+
+#Make Graph#
+png("FetalLiver_ICPOES_Manganese_Females_AllData_PAExFe_WetWt_Dotplot.png", units="in", width=7, height=7, res=600) 
+
+sets <- c("MD", "PAE", "MD-Iron", "PAE-Iron")
+
+p<- ggplot(dataframe_combine, aes(x=Treatment, y=Mean)) + 
+  geom_bar(stat="identity", color="black", aes(fill = Treatment),
+           position=position_dodge()) +
+  scale_fill_manual(values=c("MD" = "#0000CC",
+                             "PAE" = "#6699FF",
+                             "MD-Iron" = "#660066",
+                             "PAE-Iron" = "#9900CC"
+                             )) +
+  geom_errorbar(aes(ymin=Lower, ymax=Upper), width=.2,
+                position=position_dodge(.9)) + 
+  geom_point(aes(x=Treatment, y=Value),
+             size = 1.25, shape = 19, position = position_jitter(width=.15, height=0.1)) +
+  scale_y_continuous(expand = c(0,0), limits = c(0,1)) +
+  ggtitle("Fetal Liver Manganese- Females") +
+  ylab(expression("Manganese (µg Mn/g wet weight tissue)")) + 
+  theme(plot.title = element_text(hjust = 0.5, size=18), 
+        axis.title.x = element_blank(), #gets rid of x-axis label
+        axis.title.y = element_text(size = 16),
+        panel.grid.major = element_blank(), #gets rid of major gridlines
+        panel.grid.minor = element_blank(), #gets rid of minor gridlines
+        panel.background = element_blank(), #turns background white instead of gray
+        axis.line = element_line(colour = "black"), 
+        legend.position="none", #gets rid of legend
+        axis.text=element_text(size=18, color = "black"), #sets size of x and y axis labels
+        axis.text.x=element_text(angle = 45, vjust = .95, hjust = 0.9),
+        axis.title=element_text(size=20,face="bold")) + 
+  scale_x_discrete (limits = sets)
+print(p)
+dev.off() 
+```
+```{r Fetal Liver Manganese- Female, echo = FALSE, warning = FALSE, message = FALSE}
+print(p)
+```
+
+## Fetal Liver Silicon- Female
+```{r, echo = FALSE, warning = FALSE, message = FALSE}
+#Mean
+Mean <- tapply(Females$Silicon, as.character(Females$Treatment), mean, na.rm=TRUE) #make sure to change 
+Mean <- as.data.frame(rep(Mean, each = Sex_NumPoints))
+Mean$Treatment <- rep(ActualGroupOrder, each = Sex_NumPoints) 
+colnames(Mean)[1] <- "Mean"
+
+#Stdev
+Stdev <- tapply(Females$Silicon, as.character(Females$Treatment), sd, na.rm=TRUE) #make sure to change 
+Stdev <- as.data.frame(rep(Stdev, each = Sex_NumPoints))
+Stdev$Treatment <- rep(ActualGroupOrder, each = Sex_NumPoints)
+colnames(Stdev)[1] <- "Stdev"
+
+#Combine
+dataframe_combine <- cbind(Mean, Stdev, Females$Silicon) #make sure to change
+colnames(dataframe_combine)[5] <- "Value"
+dataframe_combine <- dataframe_combine[-2]
+
+#Error bars
+dataframe_combine$Upper <- dataframe_combine$Mean + dataframe_combine$Stdev
+dataframe_combine$Lower <- dataframe_combine$Mean - dataframe_combine$Stdev
+
+#Make Graph#
+png("FetalLiver_ICPOES_Silicon_Females_AllData_PAExFe_WetWt_Dotplot.png", units="in", width=7, height=7, res=600) 
+
+sets <- c("MD", "PAE", "MD-Iron", "PAE-Iron")
+
+p<- ggplot(dataframe_combine, aes(x=Treatment, y=Mean)) + 
+  geom_bar(stat="identity", color="black", aes(fill = Treatment),
+           position=position_dodge()) +
+  scale_fill_manual(values=c("MD" = "#0000CC",
+                             "PAE" = "#6699FF",
+                             "MD-Iron" = "#660066",
+                             "PAE-Iron" = "#9900CC"
+                             )) +
+  geom_errorbar(aes(ymin=Lower, ymax=Upper), width=.2,
+                position=position_dodge(.9)) + 
+  geom_point(aes(x=Treatment, y=Value),
+             size = 1.25, shape = 19, position = position_jitter(width=.15, height=0.1)) +
+  scale_y_continuous(expand = c(0,0), limits = c(0,1)) +
+  ggtitle("Fetal Liver Silicon- Females") +
+  ylab(expression("Silicon (µg Si/g wet weight tissue)")) + 
+  theme(plot.title = element_text(hjust = 0.5, size=18), 
+        axis.title.x = element_blank(), #gets rid of x-axis label
+        axis.title.y = element_text(size = 16),
+        panel.grid.major = element_blank(), #gets rid of major gridlines
+        panel.grid.minor = element_blank(), #gets rid of minor gridlines
+        panel.background = element_blank(), #turns background white instead of gray
+        axis.line = element_line(colour = "black"), 
+        legend.position="none", #gets rid of legend
+        axis.text=element_text(size=18, color = "black"), #sets size of x and y axis labels
+        axis.text.x=element_text(angle = 45, vjust = .95, hjust = 0.9),
+        axis.title=element_text(size=20,face="bold")) + 
+  scale_x_discrete (limits = sets)
+print(p)
+dev.off() 
+```
+```{r Fetal Liver Silicon- Female, echo = FALSE, warning = FALSE, message = FALSE}
+print(p)
+```
+
+## Fetal Liver Sodium- Female
+```{r, echo = FALSE, warning = FALSE, message = FALSE}
+#Mean
+Mean <- tapply(Females$Sodium, as.character(Females$Treatment), mean, na.rm=TRUE) #make sure to change 
+Mean <- as.data.frame(rep(Mean, each = Sex_NumPoints))
+Mean$Treatment <- rep(ActualGroupOrder, each = Sex_NumPoints) 
+colnames(Mean)[1] <- "Mean"
+
+#Stdev
+Stdev <- tapply(Females$Sodium, as.character(Females$Treatment), sd, na.rm=TRUE) #make sure to change 
+Stdev <- as.data.frame(rep(Stdev, each = Sex_NumPoints))
+Stdev$Treatment <- rep(ActualGroupOrder, each = Sex_NumPoints)
+colnames(Stdev)[1] <- "Stdev"
+
+#Combine
+dataframe_combine <- cbind(Mean, Stdev, Females$Sodium) #make sure to change
+colnames(dataframe_combine)[5] <- "Value"
+dataframe_combine <- dataframe_combine[-2]
+
+#Error bars
+dataframe_combine$Upper <- dataframe_combine$Mean + dataframe_combine$Stdev
+dataframe_combine$Lower <- dataframe_combine$Mean - dataframe_combine$Stdev
+
+#Make Graph#
+png("FetalLiver_ICPOES_Sodium_Females_AllData_PAExFe_WetWt_Dotplot.png", units="in", width=7, height=7, res=600) 
+
+sets <- c("MD", "PAE", "MD-Iron", "PAE-Iron")
+
+p<- ggplot(dataframe_combine, aes(x=Treatment, y=Mean)) + 
+  geom_bar(stat="identity", color="black", aes(fill = Treatment),
+           position=position_dodge()) +
+  scale_fill_manual(values=c("MD" = "#0000CC",
+                             "PAE" = "#6699FF",
+                             "MD-Iron" = "#660066",
+                             "PAE-Iron" = "#9900CC"
+                             )) +
+  geom_errorbar(aes(ymin=Lower, ymax=Upper), width=.2,
+                position=position_dodge(.9)) + 
+  geom_point(aes(x=Treatment, y=Value),
+             size = 1.25, shape = 19, position = position_jitter(width=.15, height=0.1)) +
+  scale_y_continuous(expand = c(0,0), limits = c(0,1200)) +
+  ggtitle("Fetal Liver Sodium- Females") +
+  ylab(expression("Sodium (µg Na/g wet weight tissue)")) + 
+  theme(plot.title = element_text(hjust = 0.5, size=18), 
+        axis.title.x = element_blank(), #gets rid of x-axis label
+        axis.title.y = element_text(size = 16),
+        panel.grid.major = element_blank(), #gets rid of major gridlines
+        panel.grid.minor = element_blank(), #gets rid of minor gridlines
+        panel.background = element_blank(), #turns background white instead of gray
+        axis.line = element_line(colour = "black"), 
+        legend.position="none", #gets rid of legend
+        axis.text=element_text(size=18, color = "black"), #sets size of x and y axis labels
+        axis.text.x=element_text(angle = 45, vjust = .95, hjust = 0.9),
+        axis.title=element_text(size=20,face="bold")) + 
+  scale_x_discrete (limits = sets)
+print(p)
+dev.off() 
+```
+```{r Fetal Liver Sodium- Female, echo = FALSE, warning = FALSE, message = FALSE}
+print(p)
+```
+
+## Fetal Liver Zinc- Female
+```{r, echo = FALSE, warning = FALSE, message = FALSE}
+#Mean
+Mean <- tapply(Females$Zinc, as.character(Females$Treatment), mean, na.rm=TRUE) #make sure to change 
+Mean <- as.data.frame(rep(Mean, each = Sex_NumPoints))
+Mean$Treatment <- rep(ActualGroupOrder, each = Sex_NumPoints) 
+colnames(Mean)[1] <- "Mean"
+
+#Stdev
+Stdev <- tapply(Females$Zinc, as.character(Females$Treatment), sd, na.rm=TRUE) #make sure to change 
+Stdev <- as.data.frame(rep(Stdev, each = Sex_NumPoints))
+Stdev$Treatment <- rep(ActualGroupOrder, each = Sex_NumPoints)
+colnames(Stdev)[1] <- "Stdev"
+
+#Combine
+dataframe_combine <- cbind(Mean, Stdev, Females$Zinc) #make sure to change
+colnames(dataframe_combine)[5] <- "Value"
+dataframe_combine <- dataframe_combine[-2]
+
+#Error bars
+dataframe_combine$Upper <- dataframe_combine$Mean + dataframe_combine$Stdev
+dataframe_combine$Lower <- dataframe_combine$Mean - dataframe_combine$Stdev
+
+#Make Graph#
+png("FetalLiver_ICPOES_Zinc_Females_AllData_PAExFe_WetWt_Dotplot.png", units="in", width=7, height=7, res=600) 
+
+sets <- c("MD", "PAE", "MD-Iron", "PAE-Iron")
+
+p<- ggplot(dataframe_combine, aes(x=Treatment, y=Mean)) + 
+  geom_bar(stat="identity", color="black", aes(fill = Treatment),
+           position=position_dodge()) +
+  scale_fill_manual(values=c("MD" = "#0000CC",
+                             "PAE" = "#6699FF",
+                             "MD-Iron" = "#660066",
+                             "PAE-Iron" = "#9900CC"
+                             )) +
+  geom_errorbar(aes(ymin=Lower, ymax=Upper), width=.2,
+                position=position_dodge(.9)) + 
+  geom_point(aes(x=Treatment, y=Value),
+             size = 1.25, shape = 19, position = position_jitter(width=.15, height=0.1)) +
+  scale_y_continuous(expand = c(0,0), limits = c(0,80)) +
+  ggtitle("Fetal Liver Zinc- Females") +
+  ylab(expression("Zinc (µg Zn/g wet weight tissue)")) + 
+  theme(plot.title = element_text(hjust = 0.5, size=18), 
+        axis.title.x = element_blank(), #gets rid of x-axis label
+        axis.title.y = element_text(size = 16),
+        panel.grid.major = element_blank(), #gets rid of major gridlines
+        panel.grid.minor = element_blank(), #gets rid of minor gridlines
+        panel.background = element_blank(), #turns background white instead of gray
+        axis.line = element_line(colour = "black"), 
+        legend.position="none", #gets rid of legend
+        axis.text=element_text(size=18, color = "black"), #sets size of x and y axis labels
+        axis.text.x=element_text(angle = 45, vjust = .95, hjust = 0.9),
+        axis.title=element_text(size=20,face="bold")) + 
+  scale_x_discrete (limits = sets)
+print(p)
+dev.off() 
+```
+```{r Fetal Liver Zinc- Female, echo = FALSE, warning = FALSE, message = FALSE}
+print(p)
+```
+
+# Session Information
+```{r, echo = FALSE}
+session_info <- devtools::session_info()
+print(session_info)
+```

@@ -1,0 +1,1028 @@
+---
+title: "Nonheme Iron Analysis- Maternal liver, fetal liver, fetal brain- Rat Alcohol and Iron Study, GD20.5 Collection"
+author: "Kaylee Helfrich"
+date: "6/1/2021"
+output: 
+  pdf_document: default
+  html_document: default
+data: "[Tissue]_NonhemeIron.csv"
+---
+
+Built with R `r getRversion()`
+
+```{r RMarkdown setup, include = FALSE, message = FALSE}
+require(knitr)
+knitr::opts_chunk$set(echo = TRUE, tidy.opts=list(width.cutoff=60), tidy=TRUE)
+knitr::opts_knit$set(root.dir = "~/KayleeStuff/Smith_Lab/Data/Rat_Iron/Nonheme_Iron")
+options(tinytex.verbose = TRUE)
+```
+
+# Overall Study Design
+This document details my graphing of nonheme iron data from maternal livers, fetal livers, and fetal brains from rats. This analysis uses all data that were analyzed using the nonheme iron assay (Rebouche et al. 2004). All tissue samples were collected between 11/2019-12/2019 by Kaylee Helfrich, Olivia Rivera, Nipun Saini, and Cecilia Kwan. Long-Evans rats arrived at 7 weeks old and were mated at 9-11 weeks of age. The rats were dosed with 5g/kg ethanol or isocaloric maltodextrin from GD13.5-19.5. The dams also received either an iron supplement (6g/kg, Fer-In-Sol) or the same volume of water as a gavage from GD12.5-GD19.5. All dams consumed AIN-76G diet modified to contain 100ppm of iron from arrival through pregnancy. Tissues were harvested on GD20.5. All graphs are mean with standard deviation, since there are not multiple measures per sample. This analysis will allow us to compare the 4 groups. Statistical analysis in JMP will use ANOVA, following checks for normality and variance, to assign significance to the measures. 
+
+```{r include = FALSE}
+rm(list=ls())
+setwd("~/KayleeStuff/Smith_Lab/Data/Rat_Iron/Nonheme_Iron")
+library(ggplot2)
+library(plotrix)
+library(dplyr)
+library(naniar)
+```
+
+# Maternal Liver
+```{r Import ML file and rearrange by Group to be alphabetical}
+ML_File <- "MaternalLiver_NonhemeIron.csv"
+ML_data <- read.csv(ML_File, header=TRUE) 
+ML_data_frame <- data.frame(ML_data)
+ML_data_frame <- ML_data_frame[order(ML_data_frame$Group), ]
+```
+```{r echo = FALSE}
+head(ML_data_frame)
+```
+```{r}
+ActualGroupOrder <- c("PAE-Iron", "PAE","MD-Iron", "MD")
+```
+
+```{r}
+#Figure out how many rows of empty NA's are needed to equalize the Group groups
+Groupcount <- ML_data_frame %>% count(Group) #Calculate how many individual Females there are per Group group
+NumPoints <- max(Groupcount$n) #Create the variable "NumPoints" to count the # of points in the final graphs
+DiffFunc <- function(x) NumPoints - x #Create the function "DiffFunc" to calculate the number of NA rows to be added
+DiffPoints <- as.data.frame(tapply(Groupcount$n, as.character(Groupcount$Group), DiffFunc)) #Calculate number of NA rows to be added to each Group group
+DiffPoints$Group <- ActualGroupOrder #add new column so that the # of points to be added is assigned to the Group
+colnames(DiffPoints)[1] <- "NumberN" #rename column
+Nrow <- sum(DiffPoints$NumberN) #figure out how many total rows will be added to the DF_extra dataframe
+AlcFe <- DiffPoints[1,1] #for each of these, it is creating a variable for the "vector" below
+AlcH2O <- DiffPoints[2,1]
+MDFe <- DiffPoints[3,1]
+MDH2O <- DiffPoints[4,1]
+
+#Add extra rows of NAs to equalize groups
+DF_extra <- data.frame(matrix(NA, nrow = Nrow, ncol = 12)) #create an empty dataframe filled with NA's
+vector <- rep(c("Alc+Fe", "Alc+H2O", "MD+Fe", "MD+H2O"), times = c(AlcFe, AlcH2O, MDFe, MDH2O)) #create the vector to add the Group groups to the NA matrix
+DF_extra$Group <- vector #add in the Group column to the DF_extra dataframe
+DF_extra <- DF_extra[,c(1, 13,2:12)] #rearrange the columns so that they are in the same order as the original DF
+DF_extra <- setNames(DF_extra, names(ML_data_frame)) #set the names of the new df to match the original df
+ML <- rbind(ML_data_frame, DF_extra) #Rbind the 2 dataframes so that we now have equal Group group sizes
+print(ML %>% count(Group)) #check that the groups are now equal
+#rearrange to be in order of Group, otherwise the dots get accidentally reassigned to the wrong group
+ML <- ML[order(ML$Group), ]
+```
+
+## Maternal Liver Nonheme Iron
+
+### All code is included for this first example, but thereafter, only the heading and graphs are shown. For all graphs, all data is graphed unless mentioned otherwise. Messages and warnings are excluded, since NA's were included to make all groups even, and I didn't want the code to print out these errors when they weren't necessary.
+
+```{r, warning = FALSE, message = FALSE}
+#Mean- calculate mean for column, repeat it to number of points, and create dataframe
+Mean <- tapply(ML$Nonheme.Iron, as.character(ML$Group), mean, na.rm=TRUE) #make sure to change selected column to change data for graph
+Mean <- as.data.frame(rep(Mean, each = NumPoints)) #repeat mean a set number of times
+Mean$Group <- rep(ActualGroupOrder, each = NumPoints) #repeat Group a set number of times
+colnames(Mean)[1] <- "Mean" #fix column name
+
+#Stdev- calculate standard deviation for column, repeat it to number of points, and create dataframe
+Stdev <- tapply(ML$Nonheme.Iron, as.character(ML$Group), sd, na.rm=TRUE) #make sure to change selected column
+Stdev <- as.data.frame(rep(Stdev, each = NumPoints)) #repeat stdev a set number of times
+Stdev$Group <- rep(ActualGroupOrder, each = NumPoints) #repeat Group a set number of times
+colnames(Stdev)[1] <- "Stdev" #fix column name
+
+#Combine mean, standard deviation, and individual data points
+dataframe_combine <- cbind(Mean, Stdev, ML$Nonheme.Iron) #make sure to change selected column
+colnames(dataframe_combine)[5] <- "Value" #Fix name of individual data point column
+dataframe_combine <- dataframe_combine[-2] #Remove extra Group column
+
+#Error bars
+dataframe_combine$Upper <- dataframe_combine$Mean + dataframe_combine$Stdev #upper error
+dataframe_combine$Lower <- dataframe_combine$Mean - dataframe_combine$Stdev #lower error
+
+#Make Graph#
+png("MaternalLiver_NonhemeIron_AllData_PAExFe_Dotplot.png", units="in", width=7, height=7, res=600) 
+
+sets <- c("MD", "PAE", "MD-Iron", "PAE-Iron")
+
+p<- ggplot(dataframe_combine, aes(x=Group, y=Mean)) + 
+  geom_bar(stat="identity", color="black", aes(fill = Group),
+           position=position_dodge()) +
+  scale_fill_manual(values=c("MD" = "#0000CC",
+                             "PAE" = "#6699FF",
+                             "MD-Iron" = "#660066",
+                             "PAE-Iron" = "#9900CC"
+                             )) +
+  geom_errorbar(aes(ymin=Lower, ymax=Upper), width=.2,
+                position=position_dodge(.9)) + 
+  geom_point(aes(x=Group, y=Value),
+             size = 1.25, shape = 19, position = position_jitter(width=.15, height=0.1)) +
+  scale_y_continuous(expand = c(0,0), limits = c(0,250)) +
+  ggtitle("Maternal Liver Nonheme Iron") +
+  ylab(expression("Nonheme Iron (µg Fe/g wet weight tissue)")) + 
+  theme(plot.title = element_text(hjust = 0.5, size=18), 
+        axis.title.x = element_blank(), #gets rid of x-axis label
+        axis.title.y = element_text(size = 16),
+        panel.grid.major = element_blank(), #gets rid of major gridlines
+        panel.grid.minor = element_blank(), #gets rid of minor gridlines
+        panel.background = element_blank(), #turns background white instead of gray
+        axis.line = element_line(colour = "black"), 
+        legend.position="none", #gets rid of legend
+        axis.text=element_text(size=18, color = "black"), #sets size of x and y axis labels
+        axis.text.x=element_text(angle = 45, vjust = .95, hjust = 0.9),
+        axis.title=element_text(size=20,face="bold")) + 
+  scale_x_discrete (limits = sets)
+print(p)
+dev.off() 
+```
+```{r Maternal Liver Nonheme Iron, echo = FALSE}
+print(p)
+```
+
+## Maternal Liver Heme Iron
+```{r, warning = FALSE, message = FALSE, echo = FALSE}
+Mean <- tapply(ML$Heme.Iron, as.character(ML$Group), mean, na.rm=TRUE) #change
+Mean <- as.data.frame(rep(Mean, each = NumPoints))
+Mean$Group <- rep(ActualGroupOrder, each = NumPoints)
+colnames(Mean)[1] <- "Mean" 
+
+Stdev <- tapply(ML$Heme.Iron, as.character(ML$Group), sd, na.rm=TRUE) ##change
+Stdev <- as.data.frame(rep(Stdev, each = NumPoints))
+Stdev$Group <- rep(ActualGroupOrder, each = NumPoints)
+colnames(Stdev)[1] <- "Stdev" 
+
+dataframe_combine <- cbind(Mean, Stdev, ML$Heme.Iron) #change
+colnames(dataframe_combine)[5] <- "Value" 
+dataframe_combine <- dataframe_combine[-2] 
+
+dataframe_combine$Upper <- dataframe_combine$Mean + dataframe_combine$Stdev 
+dataframe_combine$Lower <- dataframe_combine$Mean - dataframe_combine$Stdev
+
+#Make Graph#
+png("MaternalLiver_HemeIron_AllData_PAExFe_Dotplot.png", units="in", width=7, height=7, res=600) 
+
+sets <- c("MD", "PAE", "MD-Iron", "PAE-Iron")
+
+p<- ggplot(dataframe_combine, aes(x=Group, y=Mean)) + 
+  geom_bar(stat="identity", color="black", aes(fill = Group),
+           position=position_dodge()) +
+  scale_fill_manual(values=c("MD" = "#0000CC",
+                             "PAE" = "#6699FF",
+                             "MD-Iron" = "#660066",
+                             "PAE-Iron" = "#9900CC"
+                             )) +
+  geom_errorbar(aes(ymin=Lower, ymax=Upper), width=.2,
+                position=position_dodge(.9)) + 
+  geom_point(aes(x=Group, y=Value),
+             size = 1.25, shape = 19, position = position_jitter(width=.15, height=0.1)) +
+  scale_y_continuous(expand = c(0,0), limits = c(-50,50)) +
+  ggtitle("Maternal Liver Heme Iron") +
+  ylab(expression("Heme Iron (µg Fe/g wet weight tissue)")) + 
+  theme(plot.title = element_text(hjust = 0.5, size=18), 
+        axis.title.x = element_blank(), #gets rid of x-axis label
+        axis.title.y = element_text(size = 16),
+        panel.grid.major = element_blank(), #gets rid of major gridlines
+        panel.grid.minor = element_blank(), #gets rid of minor gridlines
+        panel.background = element_blank(), #turns background white instead of gray
+        axis.line = element_line(colour = "black"), 
+        legend.position="none", #gets rid of legend
+        axis.text=element_text(size=18, color = "black"), #sets size of x and y axis labels
+        axis.text.x=element_text(angle = 45, vjust = .95, hjust = 0.9),
+        axis.title=element_text(size=20,face="bold")) + 
+  scale_x_discrete (limits = sets)
+print(p)
+dev.off() 
+```
+```{r Maternal Liver Heme Iron, echo = FALSE}
+print(p)
+```
+
+# Fetal Liver
+```{r Import FL file and rearrange by Group to be alphabetical}
+FL_File <- "FetalLiver_NonhemeIron.csv"
+FL_data <- read.csv(FL_File, header=TRUE) 
+FL_data_frame <- data.frame(FL_data)
+FL_data_frame <- FL_data_frame[order(FL_data_frame$Group), ]
+```
+```{r echo = FALSE}
+head(FL_data_frame)
+```
+```{r}
+ActualGroupOrder <- c("PAE-Iron", "PAE","MD-Iron", "MD")
+```
+
+```{r echo = FALSE}
+#Figure out how many rows of empty NA's are needed to equalize the Group groups
+Groupcount <- FL_data_frame %>% count(Group) #Calculate how many individual Females there are per Group group
+NumPoints <- max(Groupcount$n) #Create the variable "NumPoints" to count the # of points in the final graphs
+DiffFunc <- function(x) NumPoints - x #Create the function "DiffFunc" to calculate the number of NA rows to be added
+DiffPoints <- as.data.frame(tapply(Groupcount$n, as.character(Groupcount$Group), DiffFunc)) #Calculate number of NA rows to be added to each Group group
+DiffPoints$Group <- ActualGroupOrder #add new column so that the # of points to be added is assigned to the Group
+colnames(DiffPoints)[1] <- "NumberN" #rename column
+Nrow <- sum(DiffPoints$NumberN) #figure out how many total rows will be added to the DF_extra dataframe
+AlcFe <- DiffPoints[1,1] #for each of these, it is creating a variable for the "vector" below
+AlcH2O <- DiffPoints[2,1]
+MDFe <- DiffPoints[3,1]
+MDH2O <- DiffPoints[4,1]
+
+#Add extra rows of NAs to equalize groups
+DF_extra <- data.frame(matrix(NA, nrow = Nrow, ncol = 13)) #create an empty dataframe filled with NA's
+vector <- rep(c("Alc+Fe", "Alc+H2O", "MD+Fe", "MD+H2O"), times = c(AlcFe, AlcH2O, MDFe, MDH2O)) #create the vector to add the Group groups to the NA matrix
+DF_extra$Group <- vector #add in the Group column to the DF_extra dataframe
+DF_extra <- DF_extra[,c(1, 14,2:13)] #rearrange the columns so that they are in the same order as the original DF
+DF_extra <- setNames(DF_extra, names(FL_data_frame)) #set the names of the new df to match the original df
+DF_extra$Sex <- c("F", "M", "F", "M") #Create correct sexes so it doesn't have to be done later
+FL <- rbind(FL_data_frame, DF_extra) #Rbind the 2 dataframes so that we now have equal Group group sizes
+print(FL %>% count(Group)) #check that the groups are now equal
+#rearrange to be in order of Group, otherwise the dots get accidentally reassigned to the wrong group
+FL <- FL[order(FL$Group), ]
+```
+
+## Fetal Liver Nonheme Iron
+
+```{r, warning = FALSE, message = FALSE, echo = FALSE}
+Mean <- tapply(FL$Nonheme.Iron, as.character(FL$Group), mean, na.rm=TRUE) #change
+Mean <- as.data.frame(rep(Mean, each = NumPoints)) 
+Mean$Group <- rep(ActualGroupOrder, each = NumPoints)
+colnames(Mean)[1] <- "Mean"
+
+Stdev <- tapply(FL$Nonheme.Iron, as.character(FL$Group), sd, na.rm=TRUE) #change
+Stdev <- as.data.frame(rep(Stdev, each = NumPoints)) 
+Stdev$Group <- rep(ActualGroupOrder, each = NumPoints) 
+colnames(Stdev)[1] <- "Stdev" 
+
+dataframe_combine <- cbind(Mean, Stdev, FL$Nonheme.Iron) #change
+colnames(dataframe_combine)[5] <- "Value"
+dataframe_combine <- dataframe_combine[-2] 
+
+dataframe_combine$Upper <- dataframe_combine$Mean + dataframe_combine$Stdev
+dataframe_combine$Lower <- dataframe_combine$Mean - dataframe_combine$Stdev
+
+#Make Graph#
+png("FetalLiver_NonhemeIron_AllData_PAExFe_Dotplot.png", units="in", width=7, height=7, res=600) 
+
+sets <- c("MD", "PAE", "MD-Iron", "PAE-Iron")
+
+p<- ggplot(dataframe_combine, aes(x=Group, y=Mean)) + 
+  geom_bar(stat="identity", color="black", aes(fill = Group),
+           position=position_dodge()) +
+  scale_fill_manual(values=c("MD" = "#0000CC",
+                             "PAE" = "#6699FF",
+                             "MD-Iron" = "#660066",
+                             "PAE-Iron" = "#9900CC"
+                             )) +
+  geom_errorbar(aes(ymin=Lower, ymax=Upper), width=.2,
+                position=position_dodge(.9)) + 
+  geom_point(aes(x=Group, y=Value),
+             size = 1.25, shape = 19, position = position_jitter(width=.15, height=0.1)) +
+  scale_y_continuous(expand = c(0,0), limits = c(0,250)) +
+  ggtitle("Fetal Liver Nonheme Iron") +
+  ylab(expression("Nonheme Iron (µg Fe/g wet weight tissue)")) + 
+  theme(plot.title = element_text(hjust = 0.5, size=18), 
+        axis.title.x = element_blank(), #gets rid of x-axis label
+        axis.title.y = element_text(size = 16),
+        panel.grid.major = element_blank(), #gets rid of major gridlines
+        panel.grid.minor = element_blank(), #gets rid of minor gridlines
+        panel.background = element_blank(), #turns background white instead of gray
+        axis.line = element_line(colour = "black"), 
+        legend.position="none", #gets rid of legend
+        axis.text=element_text(size=18, color = "black"), #sets size of x and y axis labels
+        axis.text.x=element_text(angle = 45, vjust = .95, hjust = 0.9),
+        axis.title=element_text(size=20,face="bold")) + 
+  scale_x_discrete (limits = sets)
+print(p)
+dev.off() 
+```
+```{r Fetal Liver Nonheme Iron, echo = FALSE}
+print(p)
+```
+
+## Fetal Liver Heme Iron
+```{r, warning = FALSE, message = FALSE, echo = FALSE}
+Mean <- tapply(FL$Heme.Iron, as.character(FL$Group), mean, na.rm=TRUE) #change
+Mean <- as.data.frame(rep(Mean, each = NumPoints))
+Mean$Group <- rep(ActualGroupOrder, each = NumPoints)
+colnames(Mean)[1] <- "Mean" 
+
+Stdev <- tapply(FL$Heme.Iron, as.character(FL$Group), sd, na.rm=TRUE) ##change
+Stdev <- as.data.frame(rep(Stdev, each = NumPoints))
+Stdev$Group <- rep(ActualGroupOrder, each = NumPoints)
+colnames(Stdev)[1] <- "Stdev" 
+
+dataframe_combine <- cbind(Mean, Stdev, FL$Heme.Iron) #change
+colnames(dataframe_combine)[5] <- "Value" 
+dataframe_combine <- dataframe_combine[-2] 
+
+dataframe_combine$Upper <- dataframe_combine$Mean + dataframe_combine$Stdev 
+dataframe_combine$Lower <- dataframe_combine$Mean - dataframe_combine$Stdev
+
+#Make Graph#
+png("FetalLiver_HemeIron_AllData_PAExFe_Dotplot.png", units="in", width=7, height=7, res=600) 
+
+sets <- c("MD", "PAE", "MD-Iron", "PAE-Iron")
+
+p<- ggplot(dataframe_combine, aes(x=Group, y=Mean)) + 
+  geom_bar(stat="identity", color="black", aes(fill = Group),
+           position=position_dodge()) +
+  scale_fill_manual(values=c("MD" = "#0000CC",
+                             "PAE" = "#6699FF",
+                             "MD-Iron" = "#660066",
+                             "PAE-Iron" = "#9900CC"
+                             )) +
+  geom_errorbar(aes(ymin=Lower, ymax=Upper), width=.2,
+                position=position_dodge(.9)) + 
+  geom_point(aes(x=Group, y=Value),
+             size = 1.25, shape = 19, position = position_jitter(width=.15, height=0.1)) +
+  scale_y_continuous(expand = c(0,0), limits = c(-50,100)) +
+  ggtitle("Fetal Liver Heme Iron") +
+  ylab(expression("Heme Iron (µg Fe/g wet weight tissue)")) + 
+  theme(plot.title = element_text(hjust = 0.5, size=18), 
+        axis.title.x = element_blank(), #gets rid of x-axis label
+        axis.title.y = element_text(size = 16),
+        panel.grid.major = element_blank(), #gets rid of major gridlines
+        panel.grid.minor = element_blank(), #gets rid of minor gridlines
+        panel.background = element_blank(), #turns background white instead of gray
+        axis.line = element_line(colour = "black"), 
+        legend.position="none", #gets rid of legend
+        axis.text=element_text(size=18, color = "black"), #sets size of x and y axis labels
+        axis.text.x=element_text(angle = 45, vjust = .95, hjust = 0.9),
+        axis.title=element_text(size=20,face="bold")) + 
+  scale_x_discrete (limits = sets)
+print(p)
+dev.off() 
+```
+```{r Fetal Liver Heme Iron, echo = FALSE}
+print(p)
+```
+
+## Create new tables for fetal sex
+```{r}
+Males <- FL[ which(FL$Sex=='M'), ]
+Sex_NumPoints <- 9
+Females <- FL[ which(FL$Sex=='F'), ]
+```
+
+## Male Fetal Liver
+### Male Fetal Liver Nonheme Iron
+```{r, warning = FALSE, message = FALSE, echo = FALSE}
+#Mean
+Mean <- tapply(Males$Nonheme.Iron, as.character(Males$Group), mean, na.rm=TRUE) #change
+Mean <- as.data.frame(rep(Mean, each = Sex_NumPoints)) 
+Mean$Group <- rep(ActualGroupOrder, each = Sex_NumPoints) 
+colnames(Mean)[1] <- "Mean" 
+
+#Stdev
+Stdev <- tapply(Males$Nonheme.Iron, as.character(Males$Group), sd, na.rm=TRUE) #change
+Stdev <- as.data.frame(rep(Stdev, each = Sex_NumPoints))
+Stdev$Group <- rep(ActualGroupOrder, each = Sex_NumPoints)
+colnames(Stdev)[1] <- "Stdev"
+
+#Combine mean, standard deviation, and individual data points
+dataframe_combine <- cbind(Mean, Stdev, Males$Nonheme.Iron) #change
+colnames(dataframe_combine)[5] <- "Value"
+dataframe_combine <- dataframe_combine[-2]
+
+#Error bars
+dataframe_combine$Upper <- dataframe_combine$Mean + dataframe_combine$Stdev
+dataframe_combine$Lower <- dataframe_combine$Mean - dataframe_combine$Stdev 
+
+#Make Graph#
+png("FetalLiver_NonhemeIron_AllData_PAExFe_Dotplot_Males.png", units="in", width=7, height=7, res=600) 
+
+sets <- c("MD", "PAE", "MD-Iron", "PAE-Iron")
+
+p<- ggplot(dataframe_combine, aes(x=Group, y=Mean)) + 
+  geom_bar(stat="identity", color="black", aes(fill = Group),
+           position=position_dodge()) +
+  scale_fill_manual(values=c("MD" = "#0000CC",
+                             "PAE" = "#6699FF",
+                             "MD-Iron" = "#660066",
+                             "PAE-Iron" = "#9900CC"
+                             )) +
+  geom_errorbar(aes(ymin=Lower, ymax=Upper), width=.2,
+                position=position_dodge(.9)) + 
+  geom_point(aes(x=Group, y=Value),
+             size = 1.25, shape = 19, position = position_jitter(width=.15, height=0.1)) +
+  scale_y_continuous(expand = c(0,0), limits = c(0,250)) +
+  ggtitle("Fetal Liver Nonheme Iron- Males") +
+  ylab(expression("Nonheme iron (µg Fe/g wet weight tissue)")) + 
+  theme(plot.title = element_text(hjust = 0.5, size=18), 
+        axis.title.x = element_blank(), #gets rid of x-axis label
+        axis.title.y = element_text(size = 16),
+        panel.grid.major = element_blank(), #gets rid of major gridlines
+        panel.grid.minor = element_blank(), #gets rid of minor gridlines
+        panel.background = element_blank(), #turns background white instead of gray
+        axis.line = element_line(colour = "black"), 
+        legend.position="none", #gets rid of legend
+        axis.text=element_text(size=18, color = "black"), #sets size of x and y axis labels
+        axis.text.x=element_text(angle = 45, vjust = .95, hjust = 0.9),
+        axis.title=element_text(size=20,face="bold")) + 
+  scale_x_discrete (limits = sets)
+print(p)
+dev.off() 
+```
+```{r Fetal Liver Nonheme Iron- Male, echo = FALSE}
+print(p)
+```
+
+### Male Fetal Liver Heme Iron
+```{r, warning = FALSE, message = FALSE, echo = FALSE}
+#Mean
+Mean <- tapply(Males$Heme.Iron, as.character(Males$Group), mean, na.rm=TRUE) #change
+Mean <- as.data.frame(rep(Mean, each = Sex_NumPoints)) 
+Mean$Group <- rep(ActualGroupOrder, each = Sex_NumPoints) 
+colnames(Mean)[1] <- "Mean" 
+
+#Stdev
+Stdev <- tapply(Males$Heme.Iron, as.character(Males$Group), sd, na.rm=TRUE) #change
+Stdev <- as.data.frame(rep(Stdev, each = Sex_NumPoints))
+Stdev$Group <- rep(ActualGroupOrder, each = Sex_NumPoints)
+colnames(Stdev)[1] <- "Stdev"
+
+#Combine mean, standard deviation, and individual data points
+dataframe_combine <- cbind(Mean, Stdev, Males$Heme.Iron) #change
+colnames(dataframe_combine)[5] <- "Value"
+dataframe_combine <- dataframe_combine[-2]
+
+#Error bars
+dataframe_combine$Upper <- dataframe_combine$Mean + dataframe_combine$Stdev
+dataframe_combine$Lower <- dataframe_combine$Mean - dataframe_combine$Stdev 
+
+#Make Graph#
+png("FetalLiver_HemeIron_AllData_PAExFe_Dotplot_Males.png", units="in", width=7, height=7, res=600) 
+
+sets <- c("MD", "PAE", "MD-Iron", "PAE-Iron")
+
+p<- ggplot(dataframe_combine, aes(x=Group, y=Mean)) + 
+  geom_bar(stat="identity", color="black", aes(fill = Group),
+           position=position_dodge()) +
+  scale_fill_manual(values=c("MD" = "#0000CC",
+                             "PAE" = "#6699FF",
+                             "MD-Iron" = "#660066",
+                             "PAE-Iron" = "#9900CC"
+                             )) +
+  geom_errorbar(aes(ymin=Lower, ymax=Upper), width=.2,
+                position=position_dodge(.9)) + 
+  geom_point(aes(x=Group, y=Value),
+             size = 1.25, shape = 19, position = position_jitter(width=.15, height=0.1)) +
+  scale_y_continuous(expand = c(0,0), limits = c(-50,100)) +
+  ggtitle("Fetal Liver Heme Iron- Males") +
+  ylab(expression("Heme iron (µg Fe/g wet weight tissue)")) + 
+  theme(plot.title = element_text(hjust = 0.5, size=18), 
+        axis.title.x = element_blank(), #gets rid of x-axis label
+        axis.title.y = element_text(size = 16),
+        panel.grid.major = element_blank(), #gets rid of major gridlines
+        panel.grid.minor = element_blank(), #gets rid of minor gridlines
+        panel.background = element_blank(), #turns background white instead of gray
+        axis.line = element_line(colour = "black"), 
+        legend.position="none", #gets rid of legend
+        axis.text=element_text(size=18, color = "black"), #sets size of x and y axis labels
+        axis.text.x=element_text(angle = 45, vjust = .95, hjust = 0.9),
+        axis.title=element_text(size=20,face="bold")) + 
+  scale_x_discrete (limits = sets)
+print(p)
+dev.off() 
+```
+```{r Fetal Liver Heme Iron- Male, echo = FALSE}
+print(p)
+```
+
+## Female Fetal Liver
+### Female Fetal Liver Nonheme Iron
+```{r, warning = FALSE, message = FALSE, echo = FALSE}
+#Mean
+Mean <- tapply(Females$Nonheme.Iron, as.character(Females$Group), mean, na.rm=TRUE) #change
+Mean <- as.data.frame(rep(Mean, each = Sex_NumPoints)) 
+Mean$Group <- rep(ActualGroupOrder, each = Sex_NumPoints) 
+colnames(Mean)[1] <- "Mean" 
+
+#Stdev
+Stdev <- tapply(Females$Nonheme.Iron, as.character(Females$Group), sd, na.rm=TRUE) #change
+Stdev <- as.data.frame(rep(Stdev, each = Sex_NumPoints))
+Stdev$Group <- rep(ActualGroupOrder, each = Sex_NumPoints)
+colnames(Stdev)[1] <- "Stdev"
+
+#Combine mean, standard deviation, and individual data points
+dataframe_combine <- cbind(Mean, Stdev, Females$Nonheme.Iron) #change
+colnames(dataframe_combine)[5] <- "Value"
+dataframe_combine <- dataframe_combine[-2]
+
+#Error bars
+dataframe_combine$Upper <- dataframe_combine$Mean + dataframe_combine$Stdev
+dataframe_combine$Lower <- dataframe_combine$Mean - dataframe_combine$Stdev 
+
+#Make Graph#
+png("FetalLiver_NonhemeIron_AllData_PAExFe_Dotplot_Females.png", units="in", width=7, height=7, res=600) 
+
+sets <- c("MD", "PAE", "MD-Iron", "PAE-Iron")
+
+p<- ggplot(dataframe_combine, aes(x=Group, y=Mean)) + 
+  geom_bar(stat="identity", color="black", aes(fill = Group),
+           position=position_dodge()) +
+  scale_fill_manual(values=c("MD" = "#0000CC",
+                             "PAE" = "#6699FF",
+                             "MD-Iron" = "#660066",
+                             "PAE-Iron" = "#9900CC"
+                             )) +
+  geom_errorbar(aes(ymin=Lower, ymax=Upper), width=.2,
+                position=position_dodge(.9)) + 
+  geom_point(aes(x=Group, y=Value),
+             size = 1.25, shape = 19, position = position_jitter(width=.15, height=0.1)) +
+  scale_y_continuous(expand = c(0,0), limits = c(0,250)) +
+  ggtitle("Fetal Liver Nonheme Iron- Females") +
+  ylab(expression("Nonheme iron (µg Fe/g wet weight tissue)")) + 
+  theme(plot.title = element_text(hjust = 0.5, size=18), 
+        axis.title.x = element_blank(), #gets rid of x-axis label
+        axis.title.y = element_text(size = 16),
+        panel.grid.major = element_blank(), #gets rid of major gridlines
+        panel.grid.minor = element_blank(), #gets rid of minor gridlines
+        panel.background = element_blank(), #turns background white instead of gray
+        axis.line = element_line(colour = "black"), 
+        legend.position="none", #gets rid of legend
+        axis.text=element_text(size=18, color = "black"), #sets size of x and y axis labels
+        axis.text.x=element_text(angle = 45, vjust = .95, hjust = 0.9),
+        axis.title=element_text(size=20,face="bold")) + 
+  scale_x_discrete (limits = sets)
+print(p)
+dev.off() 
+```
+```{r Fetal Liver Nonheme Iron- Female, echo = FALSE}
+print(p)
+```
+
+### Female Fetal Liver Heme Iron
+```{r, warning = FALSE, message = FALSE, echo = FALSE}
+#Mean
+Mean <- tapply(Females$Heme.Iron, as.character(Females$Group), mean, na.rm=TRUE) #change
+Mean <- as.data.frame(rep(Mean, each = Sex_NumPoints)) 
+Mean$Group <- rep(ActualGroupOrder, each = Sex_NumPoints) 
+colnames(Mean)[1] <- "Mean" 
+
+#Stdev
+Stdev <- tapply(Females$Heme.Iron, as.character(Females$Group), sd, na.rm=TRUE) #change
+Stdev <- as.data.frame(rep(Stdev, each = Sex_NumPoints))
+Stdev$Group <- rep(ActualGroupOrder, each = Sex_NumPoints)
+colnames(Stdev)[1] <- "Stdev"
+
+#Combine mean, standard deviation, and individual data points
+dataframe_combine <- cbind(Mean, Stdev, Females$Heme.Iron) #change
+colnames(dataframe_combine)[5] <- "Value"
+dataframe_combine <- dataframe_combine[-2]
+
+#Error bars
+dataframe_combine$Upper <- dataframe_combine$Mean + dataframe_combine$Stdev
+dataframe_combine$Lower <- dataframe_combine$Mean - dataframe_combine$Stdev 
+
+#Make Graph#
+png("FetalLiver_HemeIron_AllData_PAExFe_Dotplot_Females.png", units="in", width=7, height=7, res=600) 
+
+sets <- c("MD", "PAE", "MD-Iron", "PAE-Iron")
+
+p<- ggplot(dataframe_combine, aes(x=Group, y=Mean)) + 
+  geom_bar(stat="identity", color="black", aes(fill = Group),
+           position=position_dodge()) +
+  scale_fill_manual(values=c("MD" = "#0000CC",
+                             "PAE" = "#6699FF",
+                             "MD-Iron" = "#660066",
+                             "PAE-Iron" = "#9900CC"
+                             )) +
+  geom_errorbar(aes(ymin=Lower, ymax=Upper), width=.2,
+                position=position_dodge(.9)) + 
+  geom_point(aes(x=Group, y=Value),
+             size = 1.25, shape = 19, position = position_jitter(width=.15, height=0.1)) +
+  scale_y_continuous(expand = c(0,0), limits = c(-50,100)) +
+  ggtitle("Fetal Liver Heme Iron- Females") +
+  ylab(expression("Heme iron (µg Fe/g wet weight tissue)")) + 
+  theme(plot.title = element_text(hjust = 0.5, size=18), 
+        axis.title.x = element_blank(), #gets rid of x-axis label
+        axis.title.y = element_text(size = 16),
+        panel.grid.major = element_blank(), #gets rid of major gridlines
+        panel.grid.minor = element_blank(), #gets rid of minor gridlines
+        panel.background = element_blank(), #turns background white instead of gray
+        axis.line = element_line(colour = "black"), 
+        legend.position="none", #gets rid of legend
+        axis.text=element_text(size=18, color = "black"), #sets size of x and y axis labels
+        axis.text.x=element_text(angle = 45, vjust = .95, hjust = 0.9),
+        axis.title=element_text(size=20,face="bold")) + 
+  scale_x_discrete (limits = sets)
+print(p)
+dev.off() 
+```
+```{r Fetal Liver Heme Iron- Female, echo = FALSE}
+print(p)
+```
+
+# Fetal Brain
+```{r Import FB file and rearrange by Group to be alphabetical}
+FB_File <- "FetalBrain_NonhemeIron.csv"
+FB_data <- read.csv(FB_File, header=TRUE) 
+FB_data_frame <- data.frame(FB_data)
+FB_data_frame <- FB_data_frame[order(FB_data_frame$Group), ]
+```
+```{r echo = FALSE}
+head(FB_data_frame)
+```
+```{r}
+ActualGroupOrder <- c("PAE-Iron", "PAE","MD-Iron", "MD")
+```
+
+```{r echo = FALSE}
+#Figure out how many rows of empty NA's are needed to equalize the Group groups
+Groupcount <- FB_data_frame %>% count(Group) #Calculate how many individual Females there are per Group group
+NumPoints <- max(Groupcount$n) #Create the variable "NumPoints" to count the # of points in the final graphs
+DiffFunc <- function(x) NumPoints - x #Create the function "DiffFunc" to calculate the number of NA rows to be added
+DiffPoints <- as.data.frame(tapply(Groupcount$n, as.character(Groupcount$Group), DiffFunc)) #Calculate number of NA rows to be added to each Group group
+DiffPoints$Group <- ActualGroupOrder #add new column so that the # of points to be added is assigned to the Group
+colnames(DiffPoints)[1] <- "NumberN" #rename column
+Nrow <- sum(DiffPoints$NumberN) #figure out how many total rows will be added to the DF_extra dataframe
+AlcFe <- DiffPoints[1,1] #for each of these, it is creating a variable for the "vector" below
+AlcH2O <- DiffPoints[2,1]
+MDFe <- DiffPoints[3,1]
+MDH2O <- DiffPoints[4,1]
+
+#Add extra rows of NAs to equalize groups
+DF_extra <- data.frame(matrix(NA, nrow = Nrow, ncol = 13)) #create an empty dataframe filled with NA's
+vector <- rep(c("Alc+Fe", "Alc+H2O", "MD+Fe", "MD+H2O"), times = c(AlcFe, AlcH2O, MDFe, MDH2O)) #create the vector to add the Group groups to the NA matrix
+DF_extra$Group <- vector #add in the Group column to the DF_extra dataframe
+DF_extra <- DF_extra[,c(1, 14,2:13)] #rearrange the columns so that they are in the same order as the original DF
+DF_extra <- setNames(DF_extra, names(FB_data_frame)) #set the names of the new df to match the original df
+DF_extra$Sex <- c("F", "M", "F", "M") #Create correct sexes so it doesn't have to be done later
+FB <- rbind(FB_data_frame, DF_extra) #Rbind the 2 dataframes so that we now have equal Group group sizes
+print(FB %>% count(Group)) #check that the groups are now equal
+#rearrange to be in order of Group, otherwise the dots get accidentally reassigned to the wrong group
+FB <- FB[order(FB$Group), ]
+```
+
+## Fetal Brain Nonheme Iron
+```{r, warning = FALSE, message = FALSE, echo = FALSE}
+Mean <- tapply(FB$Nonheme.Iron, as.character(FB$Group), mean, na.rm=TRUE) #change
+Mean <- as.data.frame(rep(Mean, each = NumPoints)) 
+Mean$Group <- rep(ActualGroupOrder, each = NumPoints)
+colnames(Mean)[1] <- "Mean"
+
+Stdev <- tapply(FB$Nonheme.Iron, as.character(FB$Group), sd, na.rm=TRUE) #change
+Stdev <- as.data.frame(rep(Stdev, each = NumPoints)) 
+Stdev$Group <- rep(ActualGroupOrder, each = NumPoints) 
+colnames(Stdev)[1] <- "Stdev" 
+
+dataframe_combine <- cbind(Mean, Stdev, FB$Nonheme.Iron) #change
+colnames(dataframe_combine)[5] <- "Value"
+dataframe_combine <- dataframe_combine[-2] 
+
+dataframe_combine$Upper <- dataframe_combine$Mean + dataframe_combine$Stdev
+dataframe_combine$Lower <- dataframe_combine$Mean - dataframe_combine$Stdev
+
+#Make Graph#
+png("FetalBrain_NonhemeIron_AllData_PAExFe_Dotplot.png", units="in", width=7, height=7, res=600) 
+
+sets <- c("MD", "PAE", "MD-Iron", "PAE-Iron")
+
+p<- ggplot(dataframe_combine, aes(x=Group, y=Mean)) + 
+  geom_bar(stat="identity", color="black", aes(fill = Group),
+           position=position_dodge()) +
+  scale_fill_manual(values=c("MD" = "#0000CC",
+                             "PAE" = "#6699FF",
+                             "MD-Iron" = "#660066",
+                             "PAE-Iron" = "#9900CC"
+                             )) +
+  geom_errorbar(aes(ymin=Lower, ymax=Upper), width=.2,
+                position=position_dodge(.9)) + 
+  geom_point(aes(x=Group, y=Value),
+             size = 1.25, shape = 19, position = position_jitter(width=.15, height=0.1)) +
+  scale_y_continuous(expand = c(0,0), limits = c(0,25)) +
+  ggtitle("Fetal Brain Nonheme Iron") +
+  ylab(expression("Nonheme Iron (µg Fe/g wet weight tissue)")) + 
+  theme(plot.title = element_text(hjust = 0.5, size=18), 
+        axis.title.x = element_blank(), #gets rid of x-axis label
+        axis.title.y = element_text(size = 16),
+        panel.grid.major = element_blank(), #gets rid of major gridlines
+        panel.grid.minor = element_blank(), #gets rid of minor gridlines
+        panel.background = element_blank(), #turns background white instead of gray
+        axis.line = element_line(colour = "black"), 
+        legend.position="none", #gets rid of legend
+        axis.text=element_text(size=18, color = "black"), #sets size of x and y axis labels
+        axis.text.x=element_text(angle = 45, vjust = .95, hjust = 0.9),
+        axis.title=element_text(size=20,face="bold")) + 
+  scale_x_discrete (limits = sets)
+print(p)
+dev.off() 
+```
+```{r Fetal Brain Nonheme Iron, echo = FALSE}
+print(p)
+```
+
+## Fetal Brain Heme Iron
+```{r, warning = FALSE, message = FALSE, echo = FALSE}
+Mean <- tapply(FB$Heme.Iron, as.character(FB$Group), mean, na.rm=TRUE) #change
+Mean <- as.data.frame(rep(Mean, each = NumPoints))
+Mean$Group <- rep(ActualGroupOrder, each = NumPoints)
+colnames(Mean)[1] <- "Mean" 
+
+Stdev <- tapply(FB$Heme.Iron, as.character(FB$Group), sd, na.rm=TRUE) ##change
+Stdev <- as.data.frame(rep(Stdev, each = NumPoints))
+Stdev$Group <- rep(ActualGroupOrder, each = NumPoints)
+colnames(Stdev)[1] <- "Stdev" 
+
+dataframe_combine <- cbind(Mean, Stdev, FB$Heme.Iron) #change
+colnames(dataframe_combine)[5] <- "Value" 
+dataframe_combine <- dataframe_combine[-2] 
+
+dataframe_combine$Upper <- dataframe_combine$Mean + dataframe_combine$Stdev 
+dataframe_combine$Lower <- dataframe_combine$Mean - dataframe_combine$Stdev
+
+#Make Graph#
+png("FetalBrain_HemeIron_AllData_PAExFe_Dotplot.png", units="in", width=7, height=7, res=600) 
+
+sets <- c("MD", "PAE", "MD-Iron", "PAE-Iron")
+
+p<- ggplot(dataframe_combine, aes(x=Group, y=Mean)) + 
+  geom_bar(stat="identity", color="black", aes(fill = Group),
+           position=position_dodge()) +
+  scale_fill_manual(values=c("MD" = "#0000CC",
+                             "PAE" = "#6699FF",
+                             "MD-Iron" = "#660066",
+                             "PAE-Iron" = "#9900CC"
+                             )) +
+  geom_errorbar(aes(ymin=Lower, ymax=Upper), width=.2,
+                position=position_dodge(.9)) + 
+  geom_point(aes(x=Group, y=Value),
+             size = 1.25, shape = 19, position = position_jitter(width=.15, height=0.1)) +
+  scale_y_continuous(expand = c(0,0), limits = c(-5,11)) +
+  ggtitle("Fetal Brain Heme Iron") +
+  ylab(expression("Heme Iron (µg Fe/g wet weight tissue)")) + 
+  theme(plot.title = element_text(hjust = 0.5, size=18), 
+        axis.title.x = element_blank(), #gets rid of x-axis label
+        axis.title.y = element_text(size = 16),
+        panel.grid.major = element_blank(), #gets rid of major gridlines
+        panel.grid.minor = element_blank(), #gets rid of minor gridlines
+        panel.background = element_blank(), #turns background white instead of gray
+        axis.line = element_line(colour = "black"), 
+        legend.position="none", #gets rid of legend
+        axis.text=element_text(size=18, color = "black"), #sets size of x and y axis labels
+        axis.text.x=element_text(angle = 45, vjust = .95, hjust = 0.9),
+        axis.title=element_text(size=20,face="bold")) + 
+  scale_x_discrete (limits = sets)
+print(p)
+dev.off() 
+```
+```{r Fetal Brain Heme Iron, echo = FALSE}
+print(p)
+```
+
+## Create new tables for fetal sex
+```{r}
+Males <- FB[ which(FB$Sex=='M'), ]
+Sex_NumPoints <- 9
+Females <- FB[ which(FB$Sex=='F'), ]
+```
+
+## Male Fetal Brain
+### Male Fetal Brain Nonheme Iron
+```{r, warning = FALSE, message = FALSE, echo = FALSE}
+#Mean
+Mean <- tapply(Males$Nonheme.Iron, as.character(Males$Group), mean, na.rm=TRUE) #change
+Mean <- as.data.frame(rep(Mean, each = Sex_NumPoints)) 
+Mean$Group <- rep(ActualGroupOrder, each = Sex_NumPoints) 
+colnames(Mean)[1] <- "Mean" 
+
+#Stdev
+Stdev <- tapply(Males$Nonheme.Iron, as.character(Males$Group), sd, na.rm=TRUE) #change
+Stdev <- as.data.frame(rep(Stdev, each = Sex_NumPoints))
+Stdev$Group <- rep(ActualGroupOrder, each = Sex_NumPoints)
+colnames(Stdev)[1] <- "Stdev"
+
+#Combine mean, standard deviation, and individual data points
+dataframe_combine <- cbind(Mean, Stdev, Males$Nonheme.Iron) #change
+colnames(dataframe_combine)[5] <- "Value"
+dataframe_combine <- dataframe_combine[-2]
+
+#Error bars
+dataframe_combine$Upper <- dataframe_combine$Mean + dataframe_combine$Stdev
+dataframe_combine$Lower <- dataframe_combine$Mean - dataframe_combine$Stdev 
+
+#Make Graph#
+png("FetalBrain_NonhemeIron_AllData_PAExFe_Dotplot_Males.png", units="in", width=7, height=7, res=600) 
+
+sets <- c("MD", "PAE", "MD-Iron", "PAE-Iron")
+
+p<- ggplot(dataframe_combine, aes(x=Group, y=Mean)) + 
+  geom_bar(stat="identity", color="black", aes(fill = Group),
+           position=position_dodge()) +
+  scale_fill_manual(values=c("MD" = "#0000CC",
+                             "PAE" = "#6699FF",
+                             "MD-Iron" = "#660066",
+                             "PAE-Iron" = "#9900CC"
+                             )) +
+  geom_errorbar(aes(ymin=Lower, ymax=Upper), width=.2,
+                position=position_dodge(.9)) + 
+  geom_point(aes(x=Group, y=Value),
+             size = 1.25, shape = 19, position = position_jitter(width=.15, height=0.1)) +
+  scale_y_continuous(expand = c(0,0), limits = c(0,25)) +
+  ggtitle("Fetal Brain Nonheme Iron- Males") +
+  ylab(expression("Nonheme iron (µg Fe/g wet weight tissue)")) + 
+  theme(plot.title = element_text(hjust = 0.5, size=18), 
+        axis.title.x = element_blank(), #gets rid of x-axis label
+        axis.title.y = element_text(size = 16),
+        panel.grid.major = element_blank(), #gets rid of major gridlines
+        panel.grid.minor = element_blank(), #gets rid of minor gridlines
+        panel.background = element_blank(), #turns background white instead of gray
+        axis.line = element_line(colour = "black"), 
+        legend.position="none", #gets rid of legend
+        axis.text=element_text(size=18, color = "black"), #sets size of x and y axis labels
+        axis.text.x=element_text(angle = 45, vjust = .95, hjust = 0.9),
+        axis.title=element_text(size=20,face="bold")) + 
+  scale_x_discrete (limits = sets)
+print(p)
+dev.off() 
+```
+```{r Fetal Brain Nonheme Iron- Male, echo = FALSE}
+print(p)
+```
+
+### Male Fetal Brain Heme Iron
+```{r, warning = FALSE, message = FALSE, echo = FALSE}
+#Mean
+Mean <- tapply(Males$Heme.Iron, as.character(Males$Group), mean, na.rm=TRUE) #change
+Mean <- as.data.frame(rep(Mean, each = Sex_NumPoints)) 
+Mean$Group <- rep(ActualGroupOrder, each = Sex_NumPoints) 
+colnames(Mean)[1] <- "Mean" 
+
+#Stdev
+Stdev <- tapply(Males$Heme.Iron, as.character(Males$Group), sd, na.rm=TRUE) #change
+Stdev <- as.data.frame(rep(Stdev, each = Sex_NumPoints))
+Stdev$Group <- rep(ActualGroupOrder, each = Sex_NumPoints)
+colnames(Stdev)[1] <- "Stdev"
+
+#Combine mean, standard deviation, and individual data points
+dataframe_combine <- cbind(Mean, Stdev, Males$Heme.Iron) #change
+colnames(dataframe_combine)[5] <- "Value"
+dataframe_combine <- dataframe_combine[-2]
+
+#Error bars
+dataframe_combine$Upper <- dataframe_combine$Mean + dataframe_combine$Stdev
+dataframe_combine$Lower <- dataframe_combine$Mean - dataframe_combine$Stdev 
+
+#Make Graph#
+png("FetalBrain_HemeIron_AllData_PAExFe_Dotplot_Males.png", units="in", width=7, height=7, res=600) 
+
+sets <- c("MD", "PAE", "MD-Iron", "PAE-Iron")
+
+p<- ggplot(dataframe_combine, aes(x=Group, y=Mean)) + 
+  geom_bar(stat="identity", color="black", aes(fill = Group),
+           position=position_dodge()) +
+  scale_fill_manual(values=c("MD" = "#0000CC",
+                             "PAE" = "#6699FF",
+                             "MD-Iron" = "#660066",
+                             "PAE-Iron" = "#9900CC"
+                             )) +
+  geom_errorbar(aes(ymin=Lower, ymax=Upper), width=.2,
+                position=position_dodge(.9)) + 
+  geom_point(aes(x=Group, y=Value),
+             size = 1.25, shape = 19, position = position_jitter(width=.15, height=0.1)) +
+  scale_y_continuous(expand = c(0,0), limits = c(-5,11)) +
+  ggtitle("Fetal Brain Heme Iron- Males") +
+  ylab(expression("Heme iron (µg Fe/g wet weight tissue)")) + 
+  theme(plot.title = element_text(hjust = 0.5, size=18), 
+        axis.title.x = element_blank(), #gets rid of x-axis label
+        axis.title.y = element_text(size = 16),
+        panel.grid.major = element_blank(), #gets rid of major gridlines
+        panel.grid.minor = element_blank(), #gets rid of minor gridlines
+        panel.background = element_blank(), #turns background white instead of gray
+        axis.line = element_line(colour = "black"), 
+        legend.position="none", #gets rid of legend
+        axis.text=element_text(size=18, color = "black"), #sets size of x and y axis labels
+        axis.text.x=element_text(angle = 45, vjust = .95, hjust = 0.9),
+        axis.title=element_text(size=20,face="bold")) + 
+  scale_x_discrete (limits = sets)
+print(p)
+dev.off() 
+```
+```{r Fetal Brain Heme Iron- Male, echo = FALSE}
+print(p)
+```
+
+## Female Fetal Brain
+### Female Fetal Brain Nonheme Iron
+```{r, warning = FALSE, message = FALSE, echo = FALSE}
+#Mean
+Mean <- tapply(Females$Nonheme.Iron, as.character(Females$Group), mean, na.rm=TRUE) #change
+Mean <- as.data.frame(rep(Mean, each = Sex_NumPoints)) 
+Mean$Group <- rep(ActualGroupOrder, each = Sex_NumPoints) 
+colnames(Mean)[1] <- "Mean" 
+
+#Stdev
+Stdev <- tapply(Females$Nonheme.Iron, as.character(Females$Group), sd, na.rm=TRUE) #change
+Stdev <- as.data.frame(rep(Stdev, each = Sex_NumPoints))
+Stdev$Group <- rep(ActualGroupOrder, each = Sex_NumPoints)
+colnames(Stdev)[1] <- "Stdev"
+
+#Combine mean, standard deviation, and individual data points
+dataframe_combine <- cbind(Mean, Stdev, Females$Nonheme.Iron) #change
+colnames(dataframe_combine)[5] <- "Value"
+dataframe_combine <- dataframe_combine[-2]
+
+#Error bars
+dataframe_combine$Upper <- dataframe_combine$Mean + dataframe_combine$Stdev
+dataframe_combine$Lower <- dataframe_combine$Mean - dataframe_combine$Stdev 
+
+#Make Graph#
+png("FetalBrain_NonhemeIron_AllData_PAExFe_Dotplot_Females.png", units="in", width=7, height=7, res=600) 
+
+sets <- c("MD", "PAE", "MD-Iron", "PAE-Iron")
+
+p<- ggplot(dataframe_combine, aes(x=Group, y=Mean)) + 
+  geom_bar(stat="identity", color="black", aes(fill = Group),
+           position=position_dodge()) +
+  scale_fill_manual(values=c("MD" = "#0000CC",
+                             "PAE" = "#6699FF",
+                             "MD-Iron" = "#660066",
+                             "PAE-Iron" = "#9900CC"
+                             )) +
+  geom_errorbar(aes(ymin=Lower, ymax=Upper), width=.2,
+                position=position_dodge(.9)) + 
+  geom_point(aes(x=Group, y=Value),
+             size = 1.25, shape = 19, position = position_jitter(width=.15, height=0.1)) +
+  scale_y_continuous(expand = c(0,0), limits = c(0,25)) +
+  ggtitle("Fetal Brain Nonheme Iron- Females") +
+  ylab(expression("Nonheme iron (µg Fe/g wet weight tissue)")) + 
+  theme(plot.title = element_text(hjust = 0.5, size=18), 
+        axis.title.x = element_blank(), #gets rid of x-axis label
+        axis.title.y = element_text(size = 16),
+        panel.grid.major = element_blank(), #gets rid of major gridlines
+        panel.grid.minor = element_blank(), #gets rid of minor gridlines
+        panel.background = element_blank(), #turns background white instead of gray
+        axis.line = element_line(colour = "black"), 
+        legend.position="none", #gets rid of legend
+        axis.text=element_text(size=18, color = "black"), #sets size of x and y axis labels
+        axis.text.x=element_text(angle = 45, vjust = .95, hjust = 0.9),
+        axis.title=element_text(size=20,face="bold")) + 
+  scale_x_discrete (limits = sets)
+print(p)
+dev.off() 
+```
+```{r Fetal Brain Nonheme Iron- Female, echo = FALSE}
+print(p)
+```
+
+### Female Fetal Brain Heme Iron
+```{r, warning = FALSE, message = FALSE, echo = FALSE}
+#Mean
+Mean <- tapply(Females$Heme.Iron, as.character(Females$Group), mean, na.rm=TRUE) #change
+Mean <- as.data.frame(rep(Mean, each = Sex_NumPoints)) 
+Mean$Group <- rep(ActualGroupOrder, each = Sex_NumPoints) 
+colnames(Mean)[1] <- "Mean" 
+
+#Stdev
+Stdev <- tapply(Females$Heme.Iron, as.character(Females$Group), sd, na.rm=TRUE) #change
+Stdev <- as.data.frame(rep(Stdev, each = Sex_NumPoints))
+Stdev$Group <- rep(ActualGroupOrder, each = Sex_NumPoints)
+colnames(Stdev)[1] <- "Stdev"
+
+#Combine mean, standard deviation, and individual data points
+dataframe_combine <- cbind(Mean, Stdev, Females$Heme.Iron) #change
+colnames(dataframe_combine)[5] <- "Value"
+dataframe_combine <- dataframe_combine[-2]
+
+#Error bars
+dataframe_combine$Upper <- dataframe_combine$Mean + dataframe_combine$Stdev
+dataframe_combine$Lower <- dataframe_combine$Mean - dataframe_combine$Stdev 
+
+#Make Graph#
+png("FetalBrain_HemeIron_AllData_PAExFe_Dotplot_Females.png", units="in", width=7, height=7, res=600) 
+
+sets <- c("MD", "PAE", "MD-Iron", "PAE-Iron")
+
+p<- ggplot(dataframe_combine, aes(x=Group, y=Mean)) + 
+  geom_bar(stat="identity", color="black", aes(fill = Group),
+           position=position_dodge()) +
+  scale_fill_manual(values=c("MD" = "#0000CC",
+                             "PAE" = "#6699FF",
+                             "MD-Iron" = "#660066",
+                             "PAE-Iron" = "#9900CC"
+                             )) +
+  geom_errorbar(aes(ymin=Lower, ymax=Upper), width=.2,
+                position=position_dodge(.9)) + 
+  geom_point(aes(x=Group, y=Value),
+             size = 1.25, shape = 19, position = position_jitter(width=.15, height=0.1)) +
+  scale_y_continuous(expand = c(0,0), limits = c(-5,11)) +
+  ggtitle("Fetal Brain Heme Iron- Females") +
+  ylab(expression("Heme iron (µg Fe/g wet weight tissue)")) + 
+  theme(plot.title = element_text(hjust = 0.5, size=18), 
+        axis.title.x = element_blank(), #gets rid of x-axis label
+        axis.title.y = element_text(size = 16),
+        panel.grid.major = element_blank(), #gets rid of major gridlines
+        panel.grid.minor = element_blank(), #gets rid of minor gridlines
+        panel.background = element_blank(), #turns background white instead of gray
+        axis.line = element_line(colour = "black"), 
+        legend.position="none", #gets rid of legend
+        axis.text=element_text(size=18, color = "black"), #sets size of x and y axis labels
+        axis.text.x=element_text(angle = 45, vjust = .95, hjust = 0.9),
+        axis.title=element_text(size=20,face="bold")) + 
+  scale_x_discrete (limits = sets)
+print(p)
+dev.off() 
+```
+```{r Fetal Brain Heme Iron- Female, echo = FALSE}
+print(p)
+```
+
+# Session Information
+```{r, echo = FALSE}
+session_info <- devtools::session_info()
+print(session_info)
+```

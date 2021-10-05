@@ -1,0 +1,143 @@
+---
+title: "Maternal Liver Mineral Analysis- Rat Alcohol and Iron Study, GD20.5 Collection"
+author: "Kaylee Helfrich"
+date: "9/3/20 and 5/17/21"
+output: 
+  pdf_document: default
+  html_document: default
+data: "ICPOES_Mineral_MaternalLiver.csv"
+---
+
+Built with R `r getRversion()`
+
+```{r RMarkdown setup, include = FALSE, message = FALSE}
+require(knitr)
+knitr::opts_chunk$set(echo = TRUE, tidy.opts=list(width.cutoff=60), tidy=TRUE)
+knitr::opts_knit$set(root.dir = "~/KayleeStuff/Smith_Lab/Data/Rat_Iron/Mineral_Analysis")
+options(tinytex.verbose = TRUE)
+```
+
+# Overall Study Design
+This document details my graphing of mineral analysis data from maternal liver from rats. This analysis uses all data that was sent for ICPOES. ICPOES (Inductively coupled plasma - optical emission spectrometry) measured 27 different elements. However, most of these elements were not present in the tissues and were removed prior to analysis, leaving only minerals that were present. All tissue samples were collected between 11/2019-12/2019 by Kaylee Helfrich, Olivia Rivera, Nipun Saini, and Cecilia Kwan. Long-Evans rats arrived at 7 weeks old and were mated at 9-11 weeks of age. The rats were dosed with 5g/kg ethanol or isocaloric maltodextrin from GD13.5-19.5. The dams also received either an iron supplement (6g/kg, Fer-In-Sol) or the same volume of water as a gavage from GD12.5-GD19.5. All dams consumed AIN-76G diet modified to contain 100ppm of iron from arrival through pregnancy. Tissues were harvested on GD20.5. All graphs are mean with standard deviation, since there are not multiple measures per sample. This analysis will allow us to compare the 4 groups. Statistical analysis in JMP will use ANOVA, following checks for normality and variance, to assign significance to the measures. 
+
+## Note: Maternal livers were perfused with 1X phosphate-buffered saline containing EDTA. The effectivity of the perfusion may affect the results, as it is apparent that the pattern of most of the minerals is the same, leading me to believe that the only difference is in how well the liver was perfused. 
+
+```{r include = FALSE}
+rm(list=ls())
+setwd("~/KayleeStuff/Smith_Lab/Data/Rat_Iron/Mineral_Analysis")
+library(ggplot2)
+library(plotrix)
+library(dplyr)
+library(naniar) # to get rid of too high values in the calcium #s if necessary
+library(extrafont)
+loadfonts(device = "win")
+```
+
+```{r Import file and rearrange by treatment to be alphabetical}
+File <- "ICPOES_Mineral_MaternalLiver.csv"
+data <- read.csv(File, header=TRUE) 
+data_frame <- data.frame(data)
+data_frame <- data_frame[order(data_frame$Treatment), ]
+```
+```{r echo = FALSE}
+print(data_frame)
+```
+```{r Prepare data for graphing}
+ActualGroupOrder <- c("ALC+Iron", "ALC","CON+Iron", "CON")
+```
+
+```{r}
+#Figure out how many rows of empty NA's are needed to equalize the treatment groups
+Groupcount <- data_frame %>% count(Treatment) #Calculate how many individual Females there are per treatment group
+NumPoints <- max(Groupcount$n) #Create the variable "NumPoints" to count the # of points in the final graphs
+DiffFunc <- function(x) NumPoints - x #Create the function "DiffFunc" to calculate the number of NA rows to be added
+DiffPoints <- as.data.frame(tapply(Groupcount$n, as.character(Groupcount$Treatment), DiffFunc)) #Calculate number of NA rows to be added to each treatment group
+DiffPoints$Treatment <- ActualGroupOrder #add new column so that the # of points to be added is assigned to the treatment
+colnames(DiffPoints)[1] <- "NumberN" #rename column
+Nrow <- sum(DiffPoints$NumberN) #figure out how many total rows will be added to the DF_extra dataframe
+AlcFe <- DiffPoints[1,1] #for each of these, it is creating a variable for the "vector" below
+AlcH2O <- DiffPoints[2,1]
+MDFe <- DiffPoints[3,1]
+MDH2O <- DiffPoints[4,1]
+
+#Add extra rows of NAs to equalize groups
+DF_extra <- data.frame(matrix(NA, nrow = Nrow, ncol = 12)) #create an empty dataframe filled with NA's
+vector <- rep(c("Alc+Fe", "Alc+H2O", "MD+Fe", "MD+H2O"), times = c(AlcFe, AlcH2O, MDFe, MDH2O)) #create the vector to add the treatment groups to the NA matrix
+DF_extra$Treatment <- vector #add in the Treatment column to the DF_extra dataframe
+DF_extra <- DF_extra[,c(1, 13,2:12)] #rearrange the columns so that they are in the same order as the original DF
+DF_extra <- setNames(DF_extra, names(data_frame)) #set the names of the new df to match the original df
+ML <- rbind(data_frame, DF_extra) #Rbind the 2 dataframes so that we now have equal treatment group sizes
+print(ML %>% count(Treatment)) #check that the groups are now equal
+#rearrange to be in order of Treatment, otherwise the dots get accidentally reassigned to the wrong group
+ML <- ML[order(ML$Treatment), ]
+```
+
+# Maternal Liver Elements
+
+## Maternal Liver Iron
+```{r, echo = FALSE, warning = FALSE, message = FALSE}
+#Mean
+Mean <- tapply(ML$Iron, as.character(ML$Treatment), mean, na.rm=TRUE) #make sure to change 
+Mean <- as.data.frame(rep(Mean, each = NumPoints))
+Mean$Treatment <- rep(ActualGroupOrder, each = NumPoints) 
+colnames(Mean)[1] <- "Mean"
+
+#Stdev
+Stdev <- tapply(ML$Iron, as.character(ML$Treatment), sd, na.rm=TRUE) #make sure to change 
+Stdev <- as.data.frame(rep(Stdev, each = NumPoints))
+Stdev$Treatment <- rep(ActualGroupOrder, each = NumPoints)
+colnames(Stdev)[1] <- "Stdev"
+
+#Combine
+dataframe_combine <- cbind(Mean, Stdev, ML$Iron) #make sure to change
+colnames(dataframe_combine)[5] <- "Value"
+dataframe_combine <- dataframe_combine[-2]
+
+#Error bars
+dataframe_combine$Upper <- dataframe_combine$Mean + dataframe_combine$Stdev
+dataframe_combine$Lower <- dataframe_combine$Mean - dataframe_combine$Stdev
+
+#Make Graph#
+png("MaternalLiver_ICPOES_Iron_AllData_PAExFe_Dotplot_B&W.png", units="in", width=7, height=7, res=600) 
+
+sets <- c("CON", "ALC", "CON+Iron", "ALC+Iron")
+
+p<- ggplot(dataframe_combine, aes(x=Treatment, y=Mean)) + 
+  geom_bar(stat="identity", color="black", aes(fill = Treatment),
+           position=position_dodge()) +
+  scale_fill_manual(values=c("CON" = "grey100",
+                             "ALC" = "grey51",
+                             "CON+Iron" = "grey75",
+                             "ALC+Iron" = "grey30"
+                             )) +
+  geom_errorbar(aes(ymin=Lower, ymax=Upper), width=.2,
+                position=position_dodge(.9)) + 
+  geom_point(aes(x=Treatment, y=Value),
+             size = 1.25, shape = 19, position = position_jitter(width=.15, height=0)) +
+  scale_y_continuous(expand = c(0,0), limits = c(0,800)) +
+  ggtitle("Maternal Liver Iron") +
+  ylab(expression("Iron (µg Fe/g dry weight tissue)")) + 
+  theme(plot.title = element_text(hjust = 0.5, size=18, family = "Times New Roman"), 
+        axis.title.x = element_blank(), #gets rid of x-axis label
+        axis.title.y = element_text(size = 26, family = "Times New Roman"),
+        panel.grid.major = element_blank(), #gets rid of major gridlines
+        panel.grid.minor = element_blank(), #gets rid of minor gridlines
+        panel.background = element_blank(), #turns background white instead of gray
+        axis.line = element_line(colour = "black"), 
+        legend.position="none", #gets rid of legend
+        axis.text=element_text(size=22, color = "black", family = "Times New Roman"), #sets size of x and y axis labels
+        axis.text.x=element_text(size = 22, family = "Times New Roman"),
+        axis.title=element_text(size=22,face="bold", family = "Times New Roman")) + 
+  scale_x_discrete (limits = sets)
+print(p)
+dev.off() 
+```
+```{r Maternal Liver Iron, echo = FALSE, warning = FALSE, message = FALSE}
+print(p)
+```
+
+# Session Information
+```{r, echo = FALSE}
+session_info <- devtools::session_info()
+print(session_info)
+```

@@ -1,0 +1,235 @@
+---
+title: "Maternal Rat Hematology Data AIN-76A diet with MD or Alcohol and Iron Supplement or Water- GD20.5- Some Data Removed"
+author: "Kaylee Helfrich"
+date: "3/27/2020-10/26/20"
+output: 
+  pdf_document: default
+  html_document: default
+data: "MaternalRatHematology_DataSheet_Nov-Dec2019_RmData2.csv"
+---
+
+Built with R `r getRversion()`
+
+```{r RMarkdown setup, include = FALSE, message = FALSE}
+require(knitr)
+knitr::opts_chunk$set(echo = TRUE, tidy.opts=list(width.cutoff=60), tidy=TRUE)
+knitr::opts_knit$set(root.dir = "~/KayleeStuff/Smith_Lab/Data/Rat_Iron/Maternal_Blood")
+options(tinytex.verbose = TRUE)
+```
+
+# Graphing Maternal Rat CBCs
+This document details my graphing of the hematology data from maternal rat CBCs. This analysis uses the data with some samples removed due to small or large sample size (samples with litter sizes +/- 2SDs from the mean of 100. This includes R029 and R031. Another set of analyses include all of the samples. All samples were collected between 11/2019-12/2019 by Kaylee Helfrich. Long-Evans rats arrived at 7 weeks old and were mated at 9-11 weeks of age. The rats were dosed with 5g/kg ethanol or isocaloric maltodextrin from GD13.5-19.5. The dams also received either an iron supplement (6g/kg, Fer-In-Sol) or the same volume of water as a gavage from GD12.5-GD19.5. All dams consumed AIN-76G diet modified to contain 100ppm of iron from arrival through pregnancy. Tissues were harvested on GD20.5. Blood was collected by cardiac puncture from the dams and collected using EDTA as the anti-coagulant. The blood was run using the standard mode on the pochi analyzer. All graphs are mean with standard deviation, since there are not multiple measures per sample. This analysis will allow us to compare the 4 groups. Statistical analysis in JMP will use ANOVA to assign significance to the measures. 
+
+```{r include = FALSE}
+rm(list=ls())
+setwd("~/KayleeStuff/Smith_Lab/Data/Rat_Iron/Maternal_Blood")
+library(ggplot2)
+library(plotrix)
+```
+
+```{r Import file and rearrange by treatment to be alphabetical}
+File <- "MaternalRatHematology_DataSheet_Nov-Dec2019_RmData2.csv"
+data <- read.csv(File, header=TRUE) 
+data_frame <- data.frame(data)
+data_frame <- data_frame[order(data_frame$Treatment), ]
+```
+```{r echo = FALSE}
+print(data_frame)
+```
+```{r Prepare data for graphing}
+ActualGroupOrder <- c("PAE+Iron", "PAE","CON+Iron", "CON")
+NumPoints <- 9 #Make sure to set the integer to the number of dots/values you have for each treatment
+```
+
+#RBCs
+## All code is included for this first example, but thereafter, only the heading and graphs are shown. For all graphs, all data is graphed unless mentioned otherwise. Messages and warnings are excluded, since NA's were included to make all groups even, and I didn't want the code to print out these errors when they weren't necessary.
+```{r, warning = FALSE, message = FALSE}
+#Mean- calculate mean for column, repeat it to number of points, and create dataframe
+Mean <- tapply(data_frame$RBC, as.character(data_frame$Treatment), mean, na.rm=TRUE) #make sure to change selected column to change data for graph
+Mean <- as.data.frame(rep(Mean, each = NumPoints)) #repeat mean a set number of times
+Mean$Treatment <- rep(ActualGroupOrder, each = NumPoints) #repeat treatment a set number of times
+colnames(Mean)[1] <- "Mean" #fix column name
+
+#Stdev- calculate standard deviation for column, repeat it to number of points, and create dataframe
+Stdev <- tapply(data_frame$RBC, as.character(data_frame$Treatment), sd, na.rm=TRUE) #make sure to change selected column
+Stdev <- as.data.frame(rep(Stdev, each = NumPoints)) #repeat stdev a set number of times
+Stdev$Treatment <- rep(ActualGroupOrder, each = NumPoints) #repeat treatment a set number of times
+colnames(Stdev)[1] <- "Stdev" #fix column name
+
+#Combine mean, standard deviation, and individual data points
+dataframe_combine <- cbind(Mean, Stdev, data_frame$RBC) #make sure to change selected column
+colnames(dataframe_combine)[5] <- "Value" #Fix name of individual data point column
+dataframe_combine <- dataframe_combine[-2] #Remove extra treatment column
+
+#Error bars
+dataframe_combine$Upper <- dataframe_combine$Mean + dataframe_combine$Stdev #upper error
+dataframe_combine$Lower <- dataframe_combine$Mean - dataframe_combine$Stdev #lower error
+
+#Make Graph#
+png("Maternal_RBCs_RmData2_PAExFe_Dotplot_ForPres.png", units="in", width=4, height=7, res=600) 
+
+sets <- c("CON", "PAE", "CON+Iron", "PAE+Iron")
+
+p<- ggplot(dataframe_combine, aes(x=Treatment, y=Mean)) + 
+  geom_bar(stat="identity", color="black", aes(fill = Treatment),
+           position=position_dodge()) +
+  scale_fill_manual(values=c("CON" = "#BDB8AD",
+                             "PAE" = "#EBE7E0",
+                             "CON+Iron" = "#44749D",
+                             "PAE+Iron" = "#C6D4E1"
+                             )) +
+  geom_errorbar(aes(ymin=Lower, ymax=Upper), width=.2,
+                position=position_dodge(.9)) + 
+  geom_point(aes(x=Treatment, y=Value),
+             size = 1.25, shape = 19, position = position_jitter(width=.15, height=0)) +
+  scale_y_continuous(expand = c(0,0), limits = c(0,8)) +
+  ggtitle("Maternal RBCs") +
+  ylab(expression("Maternal RBCs (x10^6 cells/uL)")) + 
+  theme(plot.title = element_text(hjust = 0.5, size=18, family = "Times New Roman"), 
+        axis.title.x = element_blank(), #gets rid of x-axis label
+        axis.title.y = element_text(size = 26, family = "Times New Roman"),
+        panel.grid.major = element_blank(), #gets rid of major gridlines
+        panel.grid.minor = element_blank(), #gets rid of minor gridlines
+        panel.background = element_blank(), #turns background white instead of gray
+        axis.line = element_line(colour = "black"), 
+        legend.position="none", #gets rid of legend
+        axis.text=element_text(size=22, color = "black", family = "Times New Roman"), #sets size of x and y axis labels
+        axis.text.x=element_text(angle = 45, vjust = .95, hjust = 0.9, family = "Times New Roman"),
+        axis.title=element_text(size=22,face="bold", family = "Times New Roman")) + 
+  scale_x_discrete (limits = sets)
+print(p)
+dev.off() 
+```
+```{r Red Blood Cells, echo = FALSE}
+print(p)
+```
+
+# Hemoglobin
+```{r, echo = FALSE, warning = FALSE, message = FALSE}
+#Mean
+Mean <- tapply(data_frame$HGB, as.character(data_frame$Treatment), mean, na.rm=TRUE) #make sure to change 
+Mean <- as.data.frame(rep(Mean, each = NumPoints))
+Mean$Treatment <- rep(ActualGroupOrder, each = NumPoints) 
+colnames(Mean)[1] <- "Mean"
+
+#Stdev
+Stdev <- tapply(data_frame$HGB, as.character(data_frame$Treatment), sd, na.rm=TRUE) #make sure to change 
+Stdev <- as.data.frame(rep(Stdev, each = NumPoints))
+Stdev$Treatment <- rep(ActualGroupOrder, each = NumPoints)
+colnames(Stdev)[1] <- "Stdev"
+
+#Combine
+dataframe_combine <- cbind(Mean, Stdev, data_frame$HGB) #make sure to change
+colnames(dataframe_combine)[5] <- "Value"
+dataframe_combine <- dataframe_combine[-2]
+
+#Error bars
+dataframe_combine$Upper <- dataframe_combine$Mean + dataframe_combine$Stdev
+dataframe_combine$Lower <- dataframe_combine$Mean - dataframe_combine$Stdev
+
+#Make Graph#
+png("Maternal_Hemoglobin_RmData2_PAExFe_Dotplot_ForPres.png", units="in", width=4, height=7, res=600) 
+
+sets <- c("CON", "PAE", "CON+Iron", "PAE+Iron")
+
+p<- ggplot(dataframe_combine, aes(x=Treatment, y=Mean)) + 
+  geom_bar(stat="identity", color="black", aes(fill = Treatment),
+           position=position_dodge()) +
+  scale_fill_manual(values=c("CON" = "#BDB8AD",
+                             "PAE" = "#EBE7E0",
+                             "CON+Iron" = "#44749D",
+                             "PAE+Iron" = "#C6D4E1"
+                             )) +
+  geom_errorbar(aes(ymin=Lower, ymax=Upper), width=.2,
+                position=position_dodge(.9)) + 
+  geom_point(aes(x=Treatment, y=Value),
+             size = 1.25, shape = 19, position = position_jitter(width=.15, height=0)) +
+  scale_y_continuous(expand = c(0,0), limits = c(0,15)) +
+  ggtitle("Maternal Hemoglobin") +
+  ylab(expression("Maternal Hemoglobin (g/dL)")) + 
+  theme(plot.title = element_text(hjust = 0.5, size=18, family = "Times New Roman"), 
+        axis.title.x = element_blank(), #gets rid of x-axis label
+        axis.title.y = element_text(size = 26, family = "Times New Roman"),
+        panel.grid.major = element_blank(), #gets rid of major gridlines
+        panel.grid.minor = element_blank(), #gets rid of minor gridlines
+        panel.background = element_blank(), #turns background white instead of gray
+        axis.line = element_line(colour = "black"), 
+        legend.position="none", #gets rid of legend
+        axis.text=element_text(size=22, color = "black", family = "Times New Roman"), #sets size of x and y axis labels
+        axis.text.x=element_text(angle = 45, vjust = .95, hjust = 0.9, family = "Times New Roman"),
+        axis.title=element_text(size=22,face="bold", family = "Times New Roman")) + 
+  scale_x_discrete (limits = sets)
+print(p)
+dev.off() 
+```
+```{r Hemoglobin, echo = FALSE, warning = FALSE, message = FALSE}
+print(p)
+```
+
+# Hematocrit
+```{r, echo = FALSE, warning = FALSE, message = FALSE}
+#Mean
+Mean <- tapply(data_frame$HCT, as.character(data_frame$Treatment), mean, na.rm=TRUE) #make sure to change 
+Mean <- as.data.frame(rep(Mean, each = NumPoints))
+Mean$Treatment <- rep(ActualGroupOrder, each = NumPoints) 
+colnames(Mean)[1] <- "Mean"
+
+#Stdev
+Stdev <- tapply(data_frame$HCT, as.character(data_frame$Treatment), sd, na.rm=TRUE) #make sure to change 
+Stdev <- as.data.frame(rep(Stdev, each = NumPoints))
+Stdev$Treatment <- rep(ActualGroupOrder, each = NumPoints)
+colnames(Stdev)[1] <- "Stdev"
+
+#Combine
+dataframe_combine <- cbind(Mean, Stdev, data_frame$HCT) #make sure to change
+colnames(dataframe_combine)[5] <- "Value"
+dataframe_combine <- dataframe_combine[-2]
+
+#Error bars
+dataframe_combine$Upper <- dataframe_combine$Mean + dataframe_combine$Stdev
+dataframe_combine$Lower <- dataframe_combine$Mean - dataframe_combine$Stdev
+
+#Make Graph#
+png("Maternal_Hematocrit_RmData2_PAExFe_Dotplot_ForPres.png", units="in", width=4, height=7, res=600) 
+
+sets <- c("CON", "PAE", "CON+Iron", "PAE+Iron")
+
+p<- ggplot(dataframe_combine, aes(x=Treatment, y=Mean)) + 
+  geom_bar(stat="identity", color="black", aes(fill = Treatment),
+           position=position_dodge()) +
+  scale_fill_manual(values=c("CON" = "#BDB8AD",
+                             "PAE" = "#EBE7E0",
+                             "CON+Iron" = "#44749D",
+                             "PAE+Iron" = "#C6D4E1"
+                             )) +
+  geom_errorbar(aes(ymin=Lower, ymax=Upper), width=.2,
+                position=position_dodge(.9)) + 
+  geom_point(aes(x=Treatment, y=Value),
+             size = 1.25, shape = 19, position = position_jitter(width=.15, height=0)) +
+  scale_y_continuous(expand = c(0,0), limits = c(0,45)) +
+  ggtitle("Maternal Hematocrit") +
+  ylab(expression("Maternal Hematocrit (%)")) + 
+  theme(plot.title = element_text(hjust = 0.5, size=18, family = "Times New Roman"), 
+        axis.title.x = element_blank(), #gets rid of x-axis label
+        axis.title.y = element_text(size = 26, family = "Times New Roman"),
+        panel.grid.major = element_blank(), #gets rid of major gridlines
+        panel.grid.minor = element_blank(), #gets rid of minor gridlines
+        panel.background = element_blank(), #turns background white instead of gray
+        axis.line = element_line(colour = "black"), 
+        legend.position="none", #gets rid of legend
+        axis.text=element_text(size=22, color = "black", family = "Times New Roman"), #sets size of x and y axis labels
+        axis.text.x=element_text(angle = 45, vjust = .95, hjust = 0.9, family = "Times New Roman"),
+        axis.title=element_text(size=22,face="bold", family = "Times New Roman")) + 
+  scale_x_discrete (limits = sets)
+print(p)
+dev.off() 
+```
+```{r Hematocrit, echo = FALSE, warning = FALSE, message = FALSE}
+print(p)
+```
+
+# Session Information
+```{r, echo = FALSE}
+session_info <- devtools::session_info()
+print(session_info)
+```

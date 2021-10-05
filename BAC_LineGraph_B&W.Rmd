@@ -1,0 +1,146 @@
+---
+title: "Blood Alcohol Graph- For Publication"
+author: "Kaylee Helfrich"
+date: "6/18/21"
+output:
+  pdf_document: default
+  html_document: default
+data: "BAC_Results_CLEAN.csv"
+---
+
+Built with R `r getRversion()`
+
+```{r RMarkdown setup, include = FALSE, message = FALSE}
+require(knitr)
+knitr::opts_chunk$set(echo = TRUE, tidy.opts=list(width.cutoff=60), tidy=TRUE)
+knitr::opts_knit$set(root.dir = "~/KayleeStuff/Smith_Lab/Data/Rat_Iron/BAC")
+options(tinytex.verbose = TRUE)
+```
+
+```{r include = FALSE}
+rm(list=ls())
+setwd("~/KayleeStuff/Smith_Lab/Data/Rat_Iron/BAC")
+library(ggplot2)
+library(plotrix)
+library(dplyr)
+library(extrafont)
+loadfonts(device = "win")
+```
+
+```{r Import file and rearrange by Exposure to be alphabetical}
+File <- "BAC_Results_CLEAN.csv"
+data <- read.csv(File, header=TRUE) 
+data_frame <- data.frame(data)
+data_frame <- data_frame[order(data_frame$Exposure), ]
+```
+```{r echo = FALSE}
+print(data_frame)
+```
+```{r}
+ActualGroupOrder <- c("ALC", "ALC+iron")
+```
+
+## Create mean and standard deviation tables
+```{r}
+#BAC15
+Mean.15 <- tapply(data_frame$BAC.15, as.character(data_frame$Exposure), mean, na.rm=TRUE)
+Mean.15 <- as.data.frame(Mean.15)
+Mean.15$Exposure <- ActualGroupOrder
+colnames(Mean.15)[1] <- "Mean" #fix column name
+SE.15 <- tapply(data_frame$BAC.15, as.character(data_frame$Exposure), std.error, na.rm=TRUE)
+Mean.15$StErr <- SE.15
+Mean.15$Time <- rep("15", 2)
+
+#BAC30
+Mean.30 <- tapply(data_frame$BAC.30, as.character(data_frame$Exposure), mean, na.rm=TRUE)
+Mean.30 <- as.data.frame(Mean.30)
+Mean.30$Exposure <- ActualGroupOrder
+colnames(Mean.30)[1] <- "Mean" #fix column name
+SE.30 <- tapply(data_frame$BAC.30, as.character(data_frame$Exposure), std.error, na.rm=TRUE)
+Mean.30$StErr <- SE.30
+Mean.30$Time <- rep("30", 2)
+
+#BAC60
+Mean.60 <- tapply(data_frame$BAC.60, as.character(data_frame$Exposure), mean, na.rm=TRUE)
+Mean.60 <- as.data.frame(Mean.60)
+Mean.60$Exposure <- ActualGroupOrder
+colnames(Mean.60)[1] <- "Mean" #fix column name
+SE.60 <- tapply(data_frame$BAC.60, as.character(data_frame$Exposure), std.error, na.rm=TRUE)
+Mean.60$StErr <- SE.60
+Mean.60$Time <- rep("60", 2)
+
+#BAC90
+Mean.90 <- tapply(data_frame$BAC.90, as.character(data_frame$Exposure), mean, na.rm=TRUE)
+Mean.90 <- as.data.frame(Mean.90)
+Mean.90$Exposure <- ActualGroupOrder
+colnames(Mean.90)[1] <- "Mean" #fix column name
+SE.90 <- tapply(data_frame$BAC.90, as.character(data_frame$Exposure), std.error, na.rm=TRUE)
+Mean.90$StErr <- SE.90
+Mean.90$Time <- rep("90", 2)
+
+#BAC120
+Mean.120 <- tapply(data_frame$BAC.120, as.character(data_frame$Exposure), mean, na.rm=TRUE)
+Mean.120 <- as.data.frame(Mean.120)
+Mean.120$Exposure <- ActualGroupOrder
+colnames(Mean.120)[1] <- "Mean" #fix column name
+SE.120 <- tapply(data_frame$BAC.120, as.character(data_frame$Exposure), std.error, na.rm=TRUE)
+Mean.120$StErr <- SE.120
+Mean.120$Time <- rep("120", 2)
+
+#Merge all tables
+Table_combined <- rbind(Mean.15, Mean.30, Mean.60, Mean.90, Mean.120)
+Table_combined <- Table_combined[ ,c(2,1,3,4)]
+Table_combined$Time <- as.numeric(as.vector(Table_combined$Time)) #convert "Age" to a numeric variable so the x-axis adjusts accordingly
+names(Table_combined)[1] <- "Exposure.Group"
+Table_combined$Upper <- Table_combined$Mean + Table_combined$StErr
+Table_combined$Lower <- Table_combined$Mean - Table_combined$StErr
+Table_combined$Exposure.Group <- factor(Table_combined$Exposure.Group, levels=c("ALC", "ALC+iron"))
+```
+
+## Graph Male Weights
+```{r}
+png("BAC_Linegraph_B&W.png", units="in", width=6, height=4, res=600) 
+
+p <- ggplot(data=Table_combined, aes(x=Time, y=Mean, group=Exposure.Group)) +
+  geom_point(aes(shape=Exposure.Group)) +
+  scale_shape_manual(values=c(15, 17)) +
+  geom_line(aes(linetype=Exposure.Group, color = Exposure.Group)) +
+  scale_linetype_manual(values=c("solid", "longdash")) +
+  scale_y_continuous(expand = c(0,0), limits = c(0,250))+ 
+  xlim(10, 125) +
+  scale_color_hue(labels = c("ALC", "ALC+iron")) +
+  geom_errorbar(aes(ymin=Lower, ymax=Upper), width=2) +
+  scale_color_manual(values=c("ALC" = "#000000",
+                             "ALC+iron" = "#000000"
+                             )) +
+  ggtitle("Blood Alcohol Concentration") +
+  ylab(expression("BAC (mg/dL)")) + 
+  xlab(expression("Minutes Since Second Gavage")) +
+  theme(plot.title = element_text(hjust = 0.5, size=18, family = "Times New Roman"), 
+        legend.key=element_blank(), 
+        axis.title.y = element_text(size = 16, ),
+        axis.title.x = element_text(size = 16),
+        panel.grid.major = element_blank(), #gets rid of major gridlines
+        panel.grid.minor = element_blank(), #gets rid of minor gridlines
+        panel.background = element_blank(), #turns background white instead of gray
+        axis.line = element_line(colour = "black"), 
+        axis.text=element_text(size=18, color = "black", family = "Times New Roman"), #sets size of x and y axis labels
+        axis.text.x=element_text(vjust = .95, hjust = 0.5, family = "Times New Roman"),
+        axis.title=element_text(size=20, face="bold", family = "Times New Roman"),
+        legend.title=element_text(family = "Times New Roman"), 
+        legend.text=element_text(family = "Times New Roman"),
+        legend.key.size = unit(.9, 'cm'),
+        legend.position = c(0.9, 0.2))
+  
+print(p)
+dev.off() 
+```
+```{r BAC, echo = FALSE}
+print(p)
+```
+
+# Session Information
+```{r, echo = FALSE}
+session_info <- devtools::session_info()
+print(session_info)
+```

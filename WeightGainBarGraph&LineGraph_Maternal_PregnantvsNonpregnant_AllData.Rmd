@@ -1,0 +1,413 @@
+---
+title: "Maternal Rat Gestational Weight Gain, AIN-76A diet with MD or Alcohol and Iron Supplement or Water"
+author: "Kaylee Helfrich"
+date: "7/10/20-8/20/20"
+output: 
+  pdf_document: default
+  html_document: default
+data: "GestationalWeightGain.csv"
+---
+
+Built with R `r getRversion()`
+
+```{r RMarkdown setup, include = FALSE, message = FALSE}
+require(knitr)
+knitr::opts_chunk$set(echo = TRUE, tidy.opts=list(width.cutoff=60), tidy=TRUE)
+knitr::opts_knit$set(root.dir = "~/KayleeStuff/Smith_Lab/Data/Rat_Iron/Maternal_Anthro/WeightGain")
+options(tinytex.verbose = TRUE)
+```
+
+# Graphing Maternal Rat Prenatal Weight Gain
+This document details my graphing of the weight gain from maternal rats. This includes bar and line graphs for various measures of weight gain. This analysis uses all data that was collected (including nonpregnant dams for some measures), while another set of analyses will exclude samples from dams with litters that were too small or too large (including R014, R017, R048, R029, R031 and nonpregnant dams). Long-Evans rats arrived at 7 weeks old and were mated at 9-11 weeks of age. The rats were dosed with 5g/kg ethanol or isocaloric maltodextrin from GD17.5-19.5. The dams also received either an iron supplement (6g/kg, Fer-In-Sol) or the same volume of water as a gavage from GD12.5-GD19.5. All dams consumed AIN-76G diet modified to contain 100ppm of iron from arrival through pregnancy. Tissues were harvested on GD20.5. All graphs are mean with standard deviation, since there are not multiple measures per sample. This analysis will allow us to compare the 4 groups. Statistical analysis in JMP will use ANOVA, following checks for normality and variance, to assign significance to the measures. 
+
+```{r include = FALSE}
+rm(list=ls())
+setwd("~/KayleeStuff/Smith_Lab/Data/Rat_Iron/Maternal_Anthro/WeightGain")
+library(ggplot2)
+library(plotrix)
+library(dplyr)
+```
+
+```{r Import file and rearrange by treatment to be alphabetical}
+File <- "GestationalWeightGain.csv"
+data <- read.csv(File, header=TRUE) 
+data_frame <- data.frame(data)
+data_frame <- data_frame[order(data_frame$Treatment), ]
+```
+```{r echo = FALSE}
+print(data_frame)
+```
+```{r Prepare data for graphing}
+ActualGroupOrder <- c("PAE-Iron", "PAE","MD-Iron", "MD")
+##NumPoints <- 11 #Make sure to set the integer to the number of dots/values you have for each treatment
+```
+
+# Pregnant vs. Nonpregnant from arrival until GD12.5- actual weight
+The purpose of these graphs is to see if there is a way to distinguish nonpregnant from pregnant rats early in pregnancy before dosing begins to enable optimized dosing.
+```{r}
+Pregnant <- c("Nonpregnant", "Pregnant")
+
+#Weight at arrival
+Arrival <- as.data.frame(tapply(data_frame$Arrival..g., as.character(data_frame$Pregnant.), mean, na.rm=TRUE))
+Arrival$Pregnant <- Pregnant
+colnames(Arrival)[1] <- "Mean" #fix column name
+Arrival$Stdev <- tapply(data_frame$Arrival..g., as.character(data_frame$Pregnant), sd, na.rm=TRUE)
+Arrival$Day <- rep("-14", 2)
+
+#Weight at 1 week
+OneWeek <- as.data.frame(tapply(data_frame$Arrival..1w..g., as.character(data_frame$Pregnant.), mean, na.rm=TRUE))
+OneWeek$Pregnant <- Pregnant
+colnames(OneWeek)[1] <- "Mean" #fix column name
+OneWeek$Stdev <- tapply(data_frame$Arrival..g., as.character(data_frame$Pregnant), sd, na.rm=TRUE)
+OneWeek$Day <- rep("-7", 2)
+
+#Weight at 2 weeks
+TwoWeek <- as.data.frame(tapply(data_frame$Arrival...2w..g., as.character(data_frame$Pregnant.), mean, na.rm=TRUE))
+TwoWeek$Pregnant <- Pregnant
+colnames(TwoWeek)[1] <- "Mean" #fix column name
+TwoWeek$Stdev <- tapply(data_frame$Arrival...2w..g., as.character(data_frame$Pregnant), sd, na.rm=TRUE)
+TwoWeek$Day <- rep("0", 2)
+
+#Weight at Plug
+GD0.5 <- as.data.frame(tapply(data_frame$GD0.5, as.character(data_frame$Pregnant.), mean, na.rm=TRUE))
+GD0.5$Pregnant <- Pregnant
+colnames(GD0.5)[1] <- "Mean" #fix column name
+GD0.5$Stdev <- tapply(data_frame$GD0.5, as.character(data_frame$Pregnant), sd, na.rm=TRUE)
+GD0.5$Day <- rep("0.5", 2)
+
+#Weight at GD3.5
+GD3.5 <- as.data.frame(tapply(data_frame$GD3.5, as.character(data_frame$Pregnant.), mean, na.rm=TRUE))
+GD3.5$Pregnant <- Pregnant
+colnames(GD3.5)[1] <- "Mean" #fix column name
+GD3.5$Stdev <- tapply(data_frame$GD3.5, as.character(data_frame$Pregnant), sd, na.rm=TRUE)
+GD3.5$Day <- rep("03.5", 2)
+
+#Weight at GD5.5
+GD5.5 <- as.data.frame(tapply(data_frame$GD5.5, as.character(data_frame$Pregnant.), mean, na.rm=TRUE))
+GD5.5$Pregnant <- Pregnant
+colnames(GD5.5)[1] <- "Mean" #fix column name
+GD5.5$Stdev <- tapply(data_frame$GD5.5, as.character(data_frame$Pregnant), sd, na.rm=TRUE)
+GD5.5$Day <- rep("05.5", 2)
+
+#Weight at GD8.5
+GD8.5 <- as.data.frame(tapply(data_frame$GD8.5, as.character(data_frame$Pregnant.), mean, na.rm=TRUE))
+GD8.5$Pregnant <- Pregnant
+colnames(GD8.5)[1] <- "Mean" #fix column name
+GD8.5$Stdev <- tapply(data_frame$GD8.5, as.character(data_frame$Pregnant), sd, na.rm=TRUE)
+GD8.5$Day <- rep("08.5", 2)
+
+#Weight at GD11.5
+GD11.5 <- as.data.frame(tapply(data_frame$GD11.5, as.character(data_frame$Pregnant.), mean, na.rm=TRUE))
+GD11.5$Pregnant <- Pregnant
+colnames(GD11.5)[1] <- "Mean" #fix column name
+GD11.5$Stdev <- tapply(data_frame$GD11.5, as.character(data_frame$Pregnant), sd, na.rm=TRUE)
+GD11.5$Day <- rep("11.5", 2)
+
+#Weight at GD12.5
+GD12.5 <- as.data.frame(tapply(data_frame$GD12.5, as.character(data_frame$Pregnant.), mean, na.rm=TRUE))
+GD12.5$Pregnant <- Pregnant
+colnames(GD12.5)[1] <- "Mean" #fix column name
+GD12.5$Stdev <- tapply(data_frame$GD12.5, as.character(data_frame$Pregnant), sd, na.rm=TRUE)
+GD12.5$Day <- rep("12.5", 2)
+```
+```{r Merge early gestation tables}
+#Merge all tables
+EarlyWeightGain_Combined <- rbind(Arrival, OneWeek, TwoWeek, GD0.5, GD3.5, GD5.5, GD8.5, GD11.5, GD12.5)
+EarlyWeightGain_Combined <- EarlyWeightGain_Combined[ ,c(2,1,3,4)]
+EarlyWeightGain_Combined$Day <- as.numeric(as.vector(EarlyWeightGain_Combined$Day)) #convert "Age" to a numeric variable so the x-axis adjusts accordingly
+names(EarlyWeightGain_Combined)[1] <- "Pregnant"
+EarlyWeightGain_Combined$Upper <- EarlyWeightGain_Combined$Mean + EarlyWeightGain_Combined$Stdev
+EarlyWeightGain_Combined$Lower <- EarlyWeightGain_Combined$Mean - EarlyWeightGain_Combined$Stdev
+```
+
+## Graph Early Prenatal Weight Gain to Distinguish Pregnant vs. Nonpregnant dams
+```{r}
+#generate with and without error bars
+png("Maternal_EarlyPrenatalWeightGain_PregnantvsNonpregnant_AllData_PAExFe_LineGraph.png", units="in", width=10, height=7, res=600)
+
+WG_PvNP <- ggplot(data=EarlyWeightGain_Combined, aes(x=Day, y=Mean, group=Pregnant, color=Pregnant)) +
+  geom_point() +
+  geom_line() +
+  scale_y_continuous(expand = c(0,0), limits = c(0,325))+ 
+  scale_color_hue(labels = c("Nonpregnant", "Pregnant")) +
+  geom_errorbar(aes(ymin=Lower, ymax=Upper), width=.2) +
+  ggtitle("Maternal Early Prenatal Weight Gain, Pregnant Vs. Nonpregnant") +
+  ylab(expression("Weight (g)")) + 
+  xlab(expression("Gestational Day")) +
+  theme(plot.title = element_text(hjust = 0.5, size=18), 
+        axis.title.y = element_text(size = 16),
+        axis.title.x = element_text(size = 16),
+        panel.grid.major = element_blank(), #gets rid of major gridlines
+        panel.grid.minor = element_blank(), #gets rid of minor gridlines
+        panel.background = element_blank(), #turns background white instead of gray
+        axis.line = element_line(colour = "black"), 
+        axis.text=element_text(size=18, color = "black"), #sets size of x and y axis labels
+        axis.text.x=element_text(vjust = .95, hjust = 0.9),
+        axis.title=element_text(size=20,face="bold"))
+  
+print(WG_PvNP)
+dev.off()
+```
+```{r Maternal Early Prenatal Weight Gain, Pregnant vs. Nonpregnant, echo = FALSE, warning = FALSE, message = FALSE}
+print(WG_PvNP)
+```
+
+```{r}
+#Total Weight Gain, pregnant vs. nonpregnant
+#Weight at GD13.5
+GD13.5 <- as.data.frame(tapply(data_frame$GD13.5, as.character(data_frame$Pregnant.), mean, na.rm=TRUE))
+GD13.5$Pregnant <- Pregnant
+colnames(GD13.5)[1] <- "Mean" #fix column name
+GD13.5$Stdev <- tapply(data_frame$GD13.5, as.character(data_frame$Pregnant), sd, na.rm=TRUE)
+GD13.5$Day <- rep("13.5", 2)
+
+#Weight at GD14.5
+GD14.5 <- as.data.frame(tapply(data_frame$GD14.5, as.character(data_frame$Pregnant.), mean, na.rm=TRUE))
+GD14.5$Pregnant <- Pregnant
+colnames(GD14.5)[1] <- "Mean" #fix column name
+GD14.5$Stdev <- tapply(data_frame$GD14.5, as.character(data_frame$Pregnant), sd, na.rm=TRUE)
+GD14.5$Day <- rep("14.5", 2)
+
+#Weight at GD15.5
+GD15.5 <- as.data.frame(tapply(data_frame$GD15.5, as.character(data_frame$Pregnant.), mean, na.rm=TRUE))
+GD15.5$Pregnant <- Pregnant
+colnames(GD15.5)[1] <- "Mean" #fix column name
+GD15.5$Stdev <- tapply(data_frame$GD15.5, as.character(data_frame$Pregnant), sd, na.rm=TRUE)
+GD15.5$Day <- rep("15.5", 2)
+
+#Weight at GD16.5
+GD16.5 <- as.data.frame(tapply(data_frame$GD16.5, as.character(data_frame$Pregnant.), mean, na.rm=TRUE))
+GD16.5$Pregnant <- Pregnant
+colnames(GD16.5)[1] <- "Mean" #fix column name
+GD16.5$Stdev <- tapply(data_frame$GD16.5, as.character(data_frame$Pregnant), sd, na.rm=TRUE)
+GD16.5$Day <- rep("16.5", 2)
+
+#Weight at GD17.5
+GD17.5 <- as.data.frame(tapply(data_frame$GD17.5, as.character(data_frame$Pregnant.), mean, na.rm=TRUE))
+GD17.5$Pregnant <- Pregnant
+colnames(GD17.5)[1] <- "Mean" #fix column name
+GD17.5$Stdev <- tapply(data_frame$GD17.5, as.character(data_frame$Pregnant), sd, na.rm=TRUE)
+GD17.5$Day <- rep("17.5", 2)
+
+#Weight at GD18.5
+GD18.5 <- as.data.frame(tapply(data_frame$GD18.5, as.character(data_frame$Pregnant.), mean, na.rm=TRUE))
+GD18.5$Pregnant <- Pregnant
+colnames(GD18.5)[1] <- "Mean" #fix column name
+GD18.5$Stdev <- tapply(data_frame$GD18.5, as.character(data_frame$Pregnant), sd, na.rm=TRUE)
+GD18.5$Day <- rep("18.5", 2)
+
+#Weight at GD19.5
+GD19.5 <- as.data.frame(tapply(data_frame$GD19.5, as.character(data_frame$Pregnant.), mean, na.rm=TRUE))
+GD19.5$Pregnant <- Pregnant
+colnames(GD19.5)[1] <- "Mean" #fix column name
+GD19.5$Stdev <- tapply(data_frame$GD19.5, as.character(data_frame$Pregnant), sd, na.rm=TRUE)
+GD19.5$Day <- rep("19.5", 2)
+
+#Weight at GD20.5
+GD20.5 <- as.data.frame(tapply(data_frame$GD20.5, as.character(data_frame$Pregnant.), mean, na.rm=TRUE))
+GD20.5$Pregnant <- Pregnant
+colnames(GD20.5)[1] <- "Mean" #fix column name
+GD20.5$Stdev <- tapply(data_frame$GD20.5, as.character(data_frame$Pregnant), sd, na.rm=TRUE)
+GD20.5$Day <- rep("20.5", 2)
+```
+```{r Merge total gestation tables}
+#Merge all tables
+TotalWeightGain_Combined <- rbind(Arrival, OneWeek, TwoWeek, GD0.5, GD3.5, GD5.5, GD8.5, GD11.5, GD12.5, GD13.5, GD14.5, GD15.5, GD16.5, GD17.5, GD18.5, GD19.5, GD20.5)
+TotalWeightGain_Combined <- TotalWeightGain_Combined[ ,c(2,1,3,4)]
+TotalWeightGain_Combined$Day <- as.numeric(as.vector(TotalWeightGain_Combined$Day)) #convert "Day" to a numeric variable so the x-axis adjusts accordingly
+names(TotalWeightGain_Combined)[1] <- "Pregnant"
+TotalWeightGain_Combined$Upper <- TotalWeightGain_Combined$Mean + TotalWeightGain_Combined$Stdev
+TotalWeightGain_Combined$Lower <- TotalWeightGain_Combined$Mean - TotalWeightGain_Combined$Stdev
+```
+
+## Graph Total Prenatal Weight Gain to Distinguish Pregnant vs. Nonpregnant dams
+```{r}
+#generate with and without error bars
+png("Maternal_TotalPrenatalWeightGain_PregnantvsNonpregnant_AllData_PAExFe_LineGraph.png", units="in", width=10, height=7, res=600)
+
+WG_PvNP <- ggplot(data=TotalWeightGain_Combined, aes(x=Day, y=Mean, group=Pregnant, color=Pregnant)) +
+  geom_point() +
+  geom_line() +
+  scale_y_continuous(expand = c(0,0), limits = c(0,375))+ 
+  scale_color_hue(labels = c("Nonpregnant", "Pregnant")) +
+  geom_errorbar(aes(ymin=Lower, ymax=Upper), width=.2) +
+  ggtitle("Maternal Total Prenatal Weight Gain, Pregnant Vs. Nonpregnant") +
+  ylab(expression("Weight (g)")) + 
+  xlab(expression("Gestational Day")) +
+  theme(plot.title = element_text(hjust = 0.5, size=18), 
+        axis.title.y = element_text(size = 16),
+        axis.title.x = element_text(size = 16),
+        panel.grid.major = element_blank(), #gets rid of major gridlines
+        panel.grid.minor = element_blank(), #gets rid of minor gridlines
+        panel.background = element_blank(), #turns background white instead of gray
+        axis.line = element_line(colour = "black"), 
+        axis.text=element_text(size=18, color = "black"), #sets size of x and y axis labels
+        axis.text.x=element_text(vjust = .95, hjust = 0.9),
+        axis.title=element_text(size=20,face="bold"))
+  
+print(WG_PvNP)
+dev.off()
+```
+```{r Maternal Total Prenatal Weight Gain, Pregnant vs. Nonpregnant, echo = FALSE, warning = FALSE, message = FALSE}
+print(WG_PvNP)
+```
+
+# Pregnant vs. Nonpregnant from arrival until GD12.5- percent weight gain from arrival weight
+```{r}
+Function1 <- function(x1, x2) { ((x2 - x1) / x1) * 100 }
+
+#Calculate percent increase from GD0.5 for all dams
+PercentIncrease <- data_frame%>% mutate(PI_3.5 = Function1(GD0.5, GD3.5))
+PercentIncrease <- PercentIncrease%>% mutate(PI_5.5 = Function1(GD0.5, GD5.5))
+PercentIncrease <- PercentIncrease%>% mutate(PI_8.5 = Function1(GD0.5, GD8.5))
+PercentIncrease <- PercentIncrease%>% mutate(PI_11.5 = Function1(GD0.5, GD11.5))
+PercentIncrease <- PercentIncrease%>% mutate(PI_12.5 = Function1(GD0.5, GD12.5))
+PercentIncrease <- PercentIncrease%>% mutate(PI_13.5 = Function1(GD0.5, GD13.5))
+PercentIncrease <- PercentIncrease%>% mutate(PI_14.5 = Function1(GD0.5, GD14.5))
+PercentIncrease <- PercentIncrease%>% mutate(PI_15.5 = Function1(GD0.5, GD15.5))
+PercentIncrease <- PercentIncrease%>% mutate(PI_16.5 = Function1(GD0.5, GD16.5))
+PercentIncrease <- PercentIncrease%>% mutate(PI_17.5 = Function1(GD0.5, GD17.5))
+PercentIncrease <- PercentIncrease%>% mutate(PI_18.5 = Function1(GD0.5, GD18.5))
+PercentIncrease <- PercentIncrease%>% mutate(PI_19.5 = Function1(GD0.5, GD19.5))
+PercentIncrease <- PercentIncrease%>% mutate(PI_20.5 = Function1(GD0.5, GD20.5))
+PercentIncrease <- select (PercentIncrease,-c(4:26))
+```
+```{r}
+#Percent Increase at GD3.5
+PI_GD3.5 <- as.data.frame(tapply(PercentIncrease$PI_3.5, as.character(data_frame$Pregnant.), mean, na.rm=TRUE))
+PI_GD3.5$Pregnant <- Pregnant
+colnames(PI_GD3.5)[1] <- "Mean" #fix column name
+PI_GD3.5$Stdev <- tapply(PercentIncrease$PI_3.5, as.character(data_frame$Pregnant), sd, na.rm=TRUE)
+PI_GD3.5$Day <- rep("03.5", 2)
+
+#Percent Increase at GD5.5
+PI_GD5.5 <- as.data.frame(tapply(PercentIncrease$PI_5.5, as.character(data_frame$Pregnant.), mean, na.rm=TRUE))
+PI_GD5.5$Pregnant <- Pregnant
+colnames(PI_GD5.5)[1] <- "Mean" #fix column name
+PI_GD5.5$Stdev <- tapply(PercentIncrease$PI_5.5, as.character(data_frame$Pregnant), sd, na.rm=TRUE)
+PI_GD5.5$Day <- rep("05.5", 2)
+
+#Percent Increase at GD8.5
+PI_GD8.5 <- as.data.frame(tapply(PercentIncrease$PI_8.5, as.character(data_frame$Pregnant.), mean, na.rm=TRUE))
+PI_GD8.5$Pregnant <- Pregnant
+colnames(PI_GD8.5)[1] <- "Mean" #fix column name
+PI_GD8.5$Stdev <- tapply(PercentIncrease$PI_8.5, as.character(data_frame$Pregnant), sd, na.rm=TRUE)
+PI_GD8.5$Day <- rep("08.5", 2)
+
+#Percent Increase at GD11.5
+PI_GD11.5 <- as.data.frame(tapply(PercentIncrease$PI_11.5, as.character(data_frame$Pregnant.), mean, na.rm=TRUE))
+PI_GD11.5$Pregnant <- Pregnant
+colnames(PI_GD11.5)[1] <- "Mean" #fix column name
+PI_GD11.5$Stdev <- tapply(PercentIncrease$PI_11.5, as.character(data_frame$Pregnant), sd, na.rm=TRUE)
+PI_GD11.5$Day <- rep("11.5", 2)
+
+#Percent Increase at GD12.5
+PI_GD12.5 <- as.data.frame(tapply(PercentIncrease$PI_12.5, as.character(data_frame$Pregnant.), mean, na.rm=TRUE))
+PI_GD12.5$Pregnant <- Pregnant
+colnames(PI_GD12.5)[1] <- "Mean" #fix column name
+PI_GD12.5$Stdev <- tapply(PercentIncrease$PI_12.5, as.character(data_frame$Pregnant), sd, na.rm=TRUE)
+PI_GD12.5$Day <- rep("12.5", 2)
+
+#Percent Increase at GD13.5
+PI_GD13.5 <- as.data.frame(tapply(PercentIncrease$PI_13.5, as.character(data_frame$Pregnant.), mean, na.rm=TRUE))
+PI_GD13.5$Pregnant <- Pregnant
+colnames(PI_GD13.5)[1] <- "Mean" #fix column name
+PI_GD13.5$Stdev <- tapply(PercentIncrease$PI_13.5, as.character(data_frame$Pregnant), sd, na.rm=TRUE)
+PI_GD13.5$Day <- rep("13.5", 2)
+
+#Percent Increase at GD14.5
+PI_GD14.5 <- as.data.frame(tapply(PercentIncrease$PI_14.5, as.character(data_frame$Pregnant.), mean, na.rm=TRUE))
+PI_GD14.5$Pregnant <- Pregnant
+colnames(PI_GD14.5)[1] <- "Mean" #fix column name
+PI_GD14.5$Stdev <- tapply(PercentIncrease$PI_14.5, as.character(data_frame$Pregnant), sd, na.rm=TRUE)
+PI_GD14.5$Day <- rep("14.5", 2)
+
+#Percent Increase at GD15.5
+PI_GD15.5 <- as.data.frame(tapply(PercentIncrease$PI_15.5, as.character(data_frame$Pregnant.), mean, na.rm=TRUE))
+PI_GD15.5$Pregnant <- Pregnant
+colnames(PI_GD15.5)[1] <- "Mean" #fix column name
+PI_GD15.5$Stdev <- tapply(PercentIncrease$PI_15.5, as.character(data_frame$Pregnant), sd, na.rm=TRUE)
+PI_GD15.5$Day <- rep("15.5", 2)
+
+#Percent Increase at GD16.5
+PI_GD16.5 <- as.data.frame(tapply(PercentIncrease$PI_16.5, as.character(data_frame$Pregnant.), mean, na.rm=TRUE))
+PI_GD16.5$Pregnant <- Pregnant
+colnames(PI_GD16.5)[1] <- "Mean" #fix column name
+PI_GD16.5$Stdev <- tapply(PercentIncrease$PI_16.5, as.character(data_frame$Pregnant), sd, na.rm=TRUE)
+PI_GD16.5$Day <- rep("16.5", 2)
+
+#Percent Increase at GD17.5
+PI_GD17.5 <- as.data.frame(tapply(PercentIncrease$PI_17.5, as.character(data_frame$Pregnant.), mean, na.rm=TRUE))
+PI_GD17.5$Pregnant <- Pregnant
+colnames(PI_GD17.5)[1] <- "Mean" #fix column name
+PI_GD17.5$Stdev <- tapply(PercentIncrease$PI_17.5, as.character(data_frame$Pregnant), sd, na.rm=TRUE)
+PI_GD17.5$Day <- rep("17.5", 2)
+
+#Percent Increase at GD18.5
+PI_GD18.5 <- as.data.frame(tapply(PercentIncrease$PI_18.5, as.character(data_frame$Pregnant.), mean, na.rm=TRUE))
+PI_GD18.5$Pregnant <- Pregnant
+colnames(PI_GD18.5)[1] <- "Mean" #fix column name
+PI_GD18.5$Stdev <- tapply(PercentIncrease$PI_18.5, as.character(data_frame$Pregnant), sd, na.rm=TRUE)
+PI_GD18.5$Day <- rep("18.5", 2)
+
+#Percent Increase at GD19.5
+PI_GD19.5 <- as.data.frame(tapply(PercentIncrease$PI_19.5, as.character(data_frame$Pregnant.), mean, na.rm=TRUE))
+PI_GD19.5$Pregnant <- Pregnant
+colnames(PI_GD19.5)[1] <- "Mean" #fix column name
+PI_GD19.5$Stdev <- tapply(PercentIncrease$PI_19.5, as.character(data_frame$Pregnant), sd, na.rm=TRUE)
+PI_GD19.5$Day <- rep("19.5", 2)
+
+#Percent Increase at GD20.5
+PI_GD20.5 <- as.data.frame(tapply(PercentIncrease$PI_20.5, as.character(data_frame$Pregnant.), mean, na.rm=TRUE))
+PI_GD20.5$Pregnant <- Pregnant
+colnames(PI_GD20.5)[1] <- "Mean" #fix column name
+PI_GD20.5$Stdev <- tapply(PercentIncrease$PI_20.5, as.character(data_frame$Pregnant), sd, na.rm=TRUE)
+PI_GD20.5$Day <- rep("20.5", 2)
+```
+```{r Merge percent increase tables}
+#Merge tables
+PercentIncrease_Combined <- rbind(PI_GD3.5, PI_GD5.5, PI_GD8.5, PI_GD11.5, PI_GD12.5, PI_GD13.5, PI_GD14.5, PI_GD15.5, PI_GD16.5, PI_GD17.5, PI_GD18.5, PI_GD19.5, PI_GD20.5)
+PercentIncrease_Combined <- PercentIncrease_Combined[ ,c(2,1,3,4)]
+PercentIncrease_Combined$Day <- as.numeric(as.vector(PercentIncrease_Combined$Day)) #convert "Day" to a numeric variable so the x-axis adjusts accordingly
+names(PercentIncrease_Combined)[1] <- "Pregnant"
+PercentIncrease_Combined$Upper <- PercentIncrease_Combined$Mean + PercentIncrease_Combined$Stdev
+PercentIncrease_Combined$Lower <- PercentIncrease_Combined$Mean - PercentIncrease_Combined$Stdev
+```
+
+## Graph Total Prenatal Weight Gain to Distinguish Pregnant vs. Nonpregnant dams
+```{r}
+#generate with and without error bars
+png("Maternal_PercentIncreaseWeightGain_PregnantvsNonpregnant_AllData_PAExFe_LineGraph.png", units="in", width=10, height=7, res=600)
+
+WG_PI_PvNP <- ggplot(data=PercentIncrease_Combined, aes(x=Day, y=Mean, group=Pregnant, color=Pregnant)) +
+  geom_point() +
+  geom_line() +
+  scale_y_continuous(expand = c(0,0), limits = c(0,55))+ 
+  scale_color_hue(labels = c("Nonpregnant", "Pregnant")) +
+  geom_errorbar(aes(ymin=Lower, ymax=Upper), width=.2) +
+  ggtitle("Maternal % Increase in Weight from GD0.5, Pregnant Vs. Nonpregnant") +
+  ylab(expression("Weight Increase from GD0.5 (%)")) + 
+  xlab(expression("Gestational Day")) +
+  theme(plot.title = element_text(hjust = 0.5, size=18), 
+        axis.title.y = element_text(size = 16),
+        axis.title.x = element_text(size = 16),
+        panel.grid.major = element_blank(), #gets rid of major gridlines
+        panel.grid.minor = element_blank(), #gets rid of minor gridlines
+        panel.background = element_blank(), #turns background white instead of gray
+        axis.line = element_line(colour = "black"), 
+        axis.text=element_text(size=18, color = "black"), #sets size of x and y axis labels
+        axis.text.x=element_text(vjust = .95, hjust = 0.9),
+        axis.title=element_text(size=20,face="bold"))
+  
+print(WG_PI_PvNP)
+dev.off()
+```
+```{r Maternal Percent Increase in Weight, Pregnant vs. Nonpregnant, echo = FALSE, warning = FALSE, message = FALSE}
+print(WG_PI_PvNP)
+```
+
+# Session Information
+```{r, echo = FALSE}
+session_info <- devtools::session_info()
+print(session_info)
+```
